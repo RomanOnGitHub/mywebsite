@@ -1,7 +1,7 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import { SUPPORTED_LOCALES, type Locale } from '@/utils/slugs';
-import { getCollection } from 'astro:content';
+import { SUPPORTED_LOCALES, type Locale, filterByLang, getLocalizedPath } from '@/utils/slugs';
+import { getCollection, type CollectionEntry } from 'astro:content';
 import { parseLeafBundleId } from '@/utils/slugs';
 
 export function getStaticPaths() {
@@ -13,43 +13,34 @@ export function getStaticPaths() {
 const { lang } = Astro.params as { lang: Locale };
 
 // Получаем записи и фильтруем по языку
-const [allBlogPosts, allCases, allServices, allIndustries] = await Promise.all([
-  getCollection('blog'),
-  getCollection('cases'),
-  getCollection('services'),
-  getCollection('industries'),
-]);
+let allBlogPosts: CollectionEntry<'blog'>[] = [];
+let allCases: CollectionEntry<'cases'>[] = [];
+let allServices: CollectionEntry<'services'>[] = [];
+let allIndustries: CollectionEntry<'industries'>[] = [];
+
+try {
+  [allBlogPosts, allCases, allServices, allIndustries] = await Promise.all([
+    getCollection('blog'),
+    getCollection('cases'),
+    getCollection('services'),
+    getCollection('industries'),
+  ]);
+} catch (error) {
+  Astro.logger.error(`Error loading collections for lang ${lang}:`, error);
+  // Продолжаем с пустыми массивами, страница отобразится без контента
+}
 
 // Фильтруем по языку
-const blogPosts = allBlogPosts
-  .filter(post => {
-    const { lang: postLang } = parseLeafBundleId(post.id);
-    return postLang === lang;
-  })
+const blogPosts = filterByLang(allBlogPosts, lang)
   .filter(post => post.data.pubDate)
   .sort((a, b) => b.data.pubDate!.getTime() - a.data.pubDate!.getTime())
   .slice(0, 5);
 
-const cases = allCases
-  .filter(caseItem => {
-    const { lang: caseLang } = parseLeafBundleId(caseItem.id);
-    return caseLang === lang;
-  })
-  .slice(0, 5);
+const cases = filterByLang(allCases, lang).slice(0, 5);
 
-const services = allServices
-  .filter(service => {
-    const { lang: serviceLang } = parseLeafBundleId(service.id);
-    return serviceLang === lang;
-  })
-  .slice(0, 5);
+const services = filterByLang(allServices, lang).slice(0, 5);
 
-const industries = allIndustries
-  .filter(industry => {
-    const { lang: industryLang } = parseLeafBundleId(industry.id);
-    return industryLang === lang;
-  })
-  .slice(0, 5);
+const industries = filterByLang(allIndustries, lang).slice(0, 5);
 ---
 
 <Layout 
@@ -67,13 +58,15 @@ const industries = allIndustries
       
       <div class="flex flex-wrap justify-center gap-4">
         <a
-          href={`/${lang}/graph/`}
+          href={getLocalizedPath('graph/', lang)}
+          data-astro-prefetch
           class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium"
         >
           Граф знаний
         </a>
         <a
-          href={`/${lang}/blog/`}
+          href={getLocalizedPath('blog/', lang)}
+          data-astro-prefetch
           class="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors font-medium"
         >
           Блог
@@ -92,7 +85,7 @@ const industries = allIndustries
               return (
                 <li>
                   <a 
-                    href={`/${lang}/blog/${slug}/`}
+                    href={getLocalizedPath(`blog/${slug}/`, lang)}
                     class="text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     {post.data.title}
@@ -113,7 +106,7 @@ const industries = allIndustries
               return (
                 <li>
                   <a 
-                    href={`/${lang}/cases/${slug}/`}
+                    href={getLocalizedPath(`cases/${slug}/`, lang)}
                     class="text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     {caseItem.data.title}
@@ -134,7 +127,7 @@ const industries = allIndustries
               return (
                 <li>
                   <a 
-                    href={`/${lang}/services/${slug}/`}
+                    href={getLocalizedPath(`services/${slug}/`, lang)}
                     class="text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     {service.data.title}
@@ -155,7 +148,7 @@ const industries = allIndustries
               return (
                 <li>
                   <a 
-                    href={`/${lang}/industries/${slug}/`}
+                    href={getLocalizedPath(`industries/${slug}/`, lang)}
                     class="text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     {industry.data.title}
@@ -172,19 +165,19 @@ const industries = allIndustries
     <section class="text-center">
       <h2 class="text-3xl font-bold mb-6">Разделы сайта</h2>
       <div class="flex flex-wrap justify-center gap-4">
-        <a href={`/${lang}/blog/`} class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('blog/', lang)} data-astro-prefetch class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
           Блог
         </a>
-        <a href={`/${lang}/cases/`} class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('cases/', lang)} data-astro-prefetch class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
           Кейсы
         </a>
-        <a href={`/${lang}/services/`} class="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('services/', lang)} data-astro-prefetch class="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
           Услуги
         </a>
-        <a href={`/${lang}/industries/`} class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('industries/', lang)} data-astro-prefetch class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
           Отрасли
         </a>
-        <a href={`/${lang}/graph/`} class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('graph/', lang)} data-astro-prefetch class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors">
           Граф знаний
         </a>
       </div>

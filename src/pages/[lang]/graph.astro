@@ -66,7 +66,7 @@ const { lang } = Astro.params as { lang: Locale };
     <!-- Контейнер для графа -->
     <div 
       id="graph-container" 
-      class="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
+      class="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden relative"
       style="width: 100%; height: 600px;"
     ></div>
     
@@ -94,6 +94,7 @@ const { lang } = Astro.params as { lang: Locale };
 
 <script>
   import ForceGraph from 'force-graph';
+  import * as d3 from 'd3-force';
   
   let graph: any = null;
   let allData: { nodes: any[]; edges: any[] } | null = null;
@@ -162,15 +163,96 @@ const { lang } = Astro.params as { lang: Locale };
       graph._destructor();
     }
     
+    // Получаем реальные размеры контейнера через getBoundingClientRect
+    const rect = container.getBoundingClientRect();
+    const width = rect.width || container.clientWidth || 800;
+    const height = rect.height || container.clientHeight || 600;
+    const margin = 30; // Отступ от краёв
+    
+    // Вычисляем центр контейнера
+    // Используем Math.floor для целочисленных координат
+    const centerX = Math.floor(width / 2);
+    const centerY = Math.floor(height / 2);
+    
+    // Отладочная информация (можно убрать после проверки)
+    console.log('Graph container:', { width, height, centerX, centerY });
+    
     // Преобразовать edges в links для force-graph
     const links = data.edges.map((e: any) => ({
       source: e.from,
       target: e.to,
     }));
     
+    // Вычисляем размеры узлов для учёта в границах
+    const nodeSizes = new Map();
+    data.nodes.forEach((node: any) => {
+      const connections = data.edges.filter((e: any) => 
+        e.from === node.id || e.to === node.id
+      ).length;
+      const size = Math.max(5, Math.min(20, connections * 2));
+      nodeSizes.set(node.id, size);
+    });
+    
+    // Кастомная сила для мягкого ограничения границ
+    // Корректирует скорости узлов, когда они выходят за пределы
+    // Это не хардкод - мы не устанавливаем позиции, а только корректируем скорости
+    const boundingBoxForce = () => {
+      let nodes: any[];
+      
+      const force = (alpha: number) => {
+        nodes.forEach((node: any) => {
+          const nodeSize = nodeSizes.get(node.id) || 10;
+          const xMin = margin + nodeSize;
+          const xMax = width - margin - nodeSize;
+          const yMin = margin + nodeSize;
+          const yMax = height - margin - nodeSize;
+          
+          // Корректируем скорость, если узел выходит за границы
+          // Используем коэффициент 0.1 для мягкости
+          if (node.x! < xMin) {
+            node.vx = (node.vx || 0) + (xMin - node.x!) * 0.1;
+          }
+          if (node.x! > xMax) {
+            node.vx = (node.vx || 0) + (xMax - node.x!) * 0.1;
+          }
+          if (node.y! < yMin) {
+            node.vy = (node.vy || 0) + (yMin - node.y!) * 0.1;
+          }
+          if (node.y! > yMax) {
+            node.vy = (node.vy || 0) + (yMax - node.y!) * 0.1;
+          }
+        });
+      };
+      
+      force.initialize = (n: any[]) => {
+        nodes = n;
+      };
+      
+      return force;
+    };
+    
+    // Устанавливаем начальные позиции узлов ПЕРЕД созданием графа
+    // Это гарантирует, что позиции будут использованы при инициализации
+    data.nodes.forEach((node: any, index: number) => {
+      // Распределяем узлы равномерно по кругу вокруг центра
+      const angle = (index / data.nodes.length) * Math.PI * 2;
+      const radius = Math.min(width, height) * 0.1;
+      
+      // Устанавливаем позиции в центре контейнера
+      // Важно: устанавливаем напрямую в объект узла
+      node.x = centerX + Math.cos(angle) * radius;
+      node.y = centerY + Math.sin(angle) * radius;
+      
+      // Инициализируем скорости в 0
+      node.vx = 0;
+      node.vy = 0;
+    });
+    
     // Создать граф
     graph = ForceGraph()(container)
       .graphData({ nodes: data.nodes, links })
+      .width(width)
+      .height(height)
       .nodeLabel((n: any) => n.title)
       .nodeColor((n: any) => {
         const colors: Record<string, string> = {
@@ -181,16 +263,14 @@ const { lang } = Astro.params as { lang: Locale };
         };
         return colors[n.type] || '#6b7280';
       })
-      .nodeVal((n: any) => {
-        // Размер узла зависит от количества связей
-        const connections = data.edges.filter((e: any) => 
-          e.from === n.id || e.to === n.id
-        ).length;
-        return Math.max(5, Math.min(20, connections * 2));
-      })
+      .nodeVal((n: any) => nodeSizes.get(n.id) || 10)
       .linkWidth(1)
       .linkDirectionalArrowLength(6)
       .linkDirectionalArrowRelPos(1)
+      .d3Force('center', d3.forceCenter(width / 2, height / 2))
+      .d3Force('charge', d3.forceManyBody().strength(-300))
+      .d3Force('link', d3.forceLink(links).id((d: any) => d.id).distance(100))
+      .d3Force('boundingBox', boundingBoxForce())
       .onNodeClick((node: any) => {
         window.location.href = `/${lang}/${node.id}/`;
       })

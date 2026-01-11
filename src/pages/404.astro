@@ -1,6 +1,6 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import { SUPPORTED_LOCALES } from '@/utils/slugs';
+import { SUPPORTED_LOCALES, getLocalizedPath, type Locale } from '@/utils/slugs';
 
 const translations: Record<string, { title: string; message: string; back: string }> = {
   ru: {
@@ -57,7 +57,7 @@ const translations: Record<string, { title: string; message: string; back: strin
 
 // Определяем язык из URL или используем default
 const urlLang = Astro.url.pathname.split('/')[1];
-const lang = SUPPORTED_LOCALES.includes(urlLang as any) ? urlLang : 'ru';
+const lang: Locale = SUPPORTED_LOCALES.includes(urlLang as Locale) ? (urlLang as Locale) : 'ru';
 const t = translations[lang] || translations.ru;
 ---
 
@@ -73,13 +73,13 @@ const t = translations[lang] || translations.ru;
     
     <div class="flex flex-col sm:flex-row gap-4 justify-center">
       <a 
-        href={`/${lang}/`}
+        href={getLocalizedPath('', lang)}
         class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium"
       >
         {t.back}
       </a>
       <a 
-        href={`/${lang}/graph/`}
+        href={getLocalizedPath('graph/', lang)}
         class="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors font-medium"
       >
         Граф знаний

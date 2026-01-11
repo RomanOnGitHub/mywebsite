@@ -106,3 +106,51 @@ export function slugToPathname(slug: string): string {
   const param = slugToParam(slug);
   return param ? '/' + param + '/' : '/';
 }
+
+/**
+ * Фильтрует элементы коллекции по языку
+ * Использует entry.data.lang если доступно, иначе парсит из ID
+ * @param items - массив элементов коллекции
+ * @param lang - целевой язык для фильтрации
+ * @returns отфильтрованный массив элементов
+ * @example
+ * const ruPosts = filterByLang(allPosts, 'ru');
+ */
+export function filterByLang<T extends { id: string; data?: { lang?: Locale } }>(
+  items: T[],
+  lang: Locale
+): T[] {
+  return items.filter(item => {
+    // Приоритет: используем entry.data.lang если доступно
+    if (item.data?.lang) {
+      return item.data.lang === lang;
+    }
+    // Fallback: парсим из ID (для обратной совместимости)
+    const { lang: itemLang } = parseLeafBundleId(item.id);
+    return itemLang === lang;
+  });
+}
+
+/**
+ * Создает локализованный путь с языковым префиксом
+ * @param path - путь без языкового префикса (например, "blog/my-post" или "/blog/")
+ * @param lang - язык для локализации
+ * @returns полный путь с языковым префиксом (например, "/ru/blog/my-post/")
+ * @example
+ * getLocalizedPath("blog/my-post", "ru") // => "/ru/blog/my-post/"
+ * getLocalizedPath("/graph/", "en") // => "/en/graph/"
+ */
+export function getLocalizedPath(path: string, lang: Locale): string {
+  // Убираем ведущий и завершающий слэши для нормализации
+  const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+  
+  // Если путь пустой, возвращаем только языковой префикс
+  if (!normalizedPath) {
+    return `/${lang}/`;
+  }
+  
+  // Добавляем завершающий слэш если его нет
+  const pathWithSlash = normalizedPath.endsWith('/') ? normalizedPath : `${normalizedPath}/`;
+  
+  return `/${lang}/${pathWithSlash}`;
+}

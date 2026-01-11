@@ -1,14 +1,15 @@
 ---
-import { getCollection, render } from 'astro:content';
+import { getCollection, render, type RenderResult } from 'astro:content';
 import LayoutPost from '@/layouts/LayoutPost.astro';
 import Stub from '@/components/Stub.astro';
 import { parseLeafBundleId, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/utils/slugs';
 
 export async function getStaticPaths() {
-  const posts = await getCollection('blog');
-  
-  // Группируем посты по slug (Leaf Bundle паттерн)
-  const postsBySlug = new Map<string, Map<Locale, typeof posts[0]>>();
+  try {
+    const posts = await getCollection('blog');
+    
+    // Группируем посты по slug (Leaf Bundle паттерн)
+    const postsBySlug = new Map<string, Map<Locale, typeof posts[0]>>();
   for (const post of posts) {
     const { slug, lang } = parseLeafBundleId(post.id);
     if (!postsBySlug.has(slug)) {
@@ -46,13 +47,24 @@ export async function getStaticPaths() {
   }
   
   return paths;
+  } catch (error) {
+    Astro.logger.error('Error generating static paths for blog:', error);
+    // Fail-fast: выбрасываем ошибку, чтобы сборка упала
+    throw error;
+  }
 }
 
 const { post, lang, hasTranslation, slug } = Astro.props;
+
+// Guard clause: проверяем что post существует
+if (!post) {
+  return Astro.redirect('/404');
+}
+
 const fullSlug = `${slug}`; // Полный slug для использования в компонентах
 
 // Рендерим контент только если есть перевод
-let Content: any = null;
+let Content: RenderResult['Content'] | null = null;
 if (hasTranslation) {
   const rendered = await render(post);
   Content = rendered.Content;

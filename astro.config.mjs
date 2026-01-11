@@ -10,6 +10,10 @@ import graphIntegration from './src/integrations/graph-integration.js';
 
 export default defineConfig({
   site: 'https://example.com',
+  output: 'static',
+  security: {
+    checkOrigin: true,
+  },
   integrations: [
     mdx(), 
     sitemap({
@@ -34,6 +38,7 @@ export default defineConfig({
     ],
   },
   env: {
+    validateSecrets: true,
     schema: {
       SITE_URL: envField.string({ 
         context: 'client', 
@@ -44,6 +49,12 @@ export default defineConfig({
       WEB3FORMS_KEY: envField.string({ 
         context: 'server', 
         access: 'secret',
+        optional: true,
+        default: '',
+      }),
+      PUBLIC_WEB3FORMS_KEY: envField.string({ 
+        context: 'client', 
+        access: 'public',
         optional: true,
         default: '',
       }),

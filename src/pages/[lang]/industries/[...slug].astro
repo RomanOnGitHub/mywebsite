@@ -1,13 +1,14 @@
 ---
-import { getCollection, render } from 'astro:content';
+import { getCollection, render, type RenderResult } from 'astro:content';
 import LayoutPost from '@/layouts/LayoutPost.astro';
 import Stub from '@/components/Stub.astro';
 import { parseLeafBundleId, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/utils/slugs';
 
 export async function getStaticPaths() {
-  const industries = await getCollection('industries');
-  
-  const industriesBySlug = new Map<string, Map<Locale, typeof industries[0]>>();
+  try {
+    const industries = await getCollection('industries');
+    
+    const industriesBySlug = new Map<string, Map<Locale, typeof industries[0]>>();
   for (const industry of industries) {
     const { slug, lang } = parseLeafBundleId(industry.id);
     if (!industriesBySlug.has(slug)) {
@@ -32,12 +33,23 @@ export async function getStaticPaths() {
   }
   
   return paths;
+  } catch (error) {
+    Astro.logger.error('Error generating static paths for industries:', error);
+    // Fail-fast: выбрасываем ошибку, чтобы сборка упала
+    throw error;
+  }
 }
 
 const { industry, lang, hasTranslation, slug } = Astro.props;
+
+// Guard clause: проверяем что industry существует
+if (!industry) {
+  return Astro.redirect('/404');
+}
+
 const fullSlug = `${slug}`;
 
-let Content: any = null;
+let Content: RenderResult['Content'] | null = null;
 if (hasTranslation) {
   const rendered = await render(industry);
   Content = rendered.Content;

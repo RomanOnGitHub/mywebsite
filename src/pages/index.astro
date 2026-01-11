@@ -1,15 +1,25 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import { SUPPORTED_LOCALES } from '@/utils/slugs';
-import { getCollection } from 'astro:content';
+import { getCollection, type CollectionEntry } from 'astro:content';
 
 // Получаем последние записи для каждого типа контента
-const [blogPosts, cases, services, industries] = await Promise.all([
-  getCollection('blog'),
-  getCollection('cases'),
-  getCollection('services'),
-  getCollection('industries'),
-]);
+let blogPosts: CollectionEntry<'blog'>[] = [];
+let cases: CollectionEntry<'cases'>[] = [];
+let services: CollectionEntry<'services'>[] = [];
+let industries: CollectionEntry<'industries'>[] = [];
+
+try {
+  [blogPosts, cases, services, industries] = await Promise.all([
+    getCollection('blog'),
+    getCollection('cases'),
+    getCollection('services'),
+    getCollection('industries'),
+  ]);
+} catch (error) {
+  Astro.logger.error('Error loading collections:', error);
+  // Продолжаем с пустыми массивами, страница отобразится без контента
+}
 
 // Сортируем по дате публикации (для blog) и берём последние 5
 const latestBlog = blogPosts
@@ -50,12 +60,14 @@ const latestIndustries = industries.slice(0, 5);
       <div class="flex flex-wrap justify-center gap-4">
         <a
           href="/ru/graph/"
+          data-astro-prefetch
           class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium"
         >
           Граф знаний
         </a>
         <a
           href="/ru/blog/"
+          data-astro-prefetch
           class="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors font-medium"
         >
           Блог
@@ -146,19 +158,19 @@ const latestIndustries = industries.slice(0, 5);
     <section class="text-center">
       <h2 class="text-3xl font-bold mb-6">Разделы сайта</h2>
       <div class="flex flex-wrap justify-center gap-4">
-        <a href="/ru/blog/" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+        <a href="/ru/blog/" data-astro-prefetch class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
           Блог
         </a>
-        <a href="/ru/cases/" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+        <a href="/ru/cases/" data-astro-prefetch class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
           Кейсы
         </a>
-        <a href="/ru/services/" class="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+        <a href="/ru/services/" data-astro-prefetch class="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
           Услуги
         </a>
-        <a href="/ru/industries/" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+        <a href="/ru/industries/" data-astro-prefetch class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
           Отрасли
         </a>
-        <a href="/ru/graph/" class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors">
+        <a href="/ru/graph/" data-astro-prefetch class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors">
           Граф знаний
         </a>
       </div>

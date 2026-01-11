@@ -1,13 +1,14 @@
 ---
-import { getCollection, render } from 'astro:content';
+import { getCollection, render, type RenderResult } from 'astro:content';
 import LayoutPost from '@/layouts/LayoutPost.astro';
 import Stub from '@/components/Stub.astro';
 import { parseLeafBundleId, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/utils/slugs';
 
 export async function getStaticPaths() {
-  const cases = await getCollection('cases');
-  
-  const casesBySlug = new Map<string, Map<Locale, typeof cases[0]>>();
+  try {
+    const cases = await getCollection('cases');
+    
+    const casesBySlug = new Map<string, Map<Locale, typeof cases[0]>>();
   for (const caseItem of cases) {
     const { slug, lang } = parseLeafBundleId(caseItem.id);
     if (!casesBySlug.has(slug)) {
@@ -32,12 +33,23 @@ export async function getStaticPaths() {
   }
   
   return paths;
+  } catch (error) {
+    Astro.logger.error('Error generating static paths for cases:', error);
+    // Fail-fast: выбрасываем ошибку, чтобы сборка упала
+    throw error;
+  }
 }
 
 const { caseItem, lang, hasTranslation, slug } = Astro.props;
+
+// Guard clause: проверяем что caseItem существует
+if (!caseItem) {
+  return Astro.redirect('/404');
+}
+
 const fullSlug = `${slug}`;
 
-let Content: any = null;
+let Content: RenderResult['Content'] | null = null;
 if (hasTranslation) {
   const rendered = await render(caseItem);
   Content = rendered.Content;

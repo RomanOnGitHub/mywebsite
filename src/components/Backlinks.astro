@@ -73,6 +73,15 @@ const locale = lang as Locale;
       }
     }
     
+    getLocalizedPath(path: string, lang: string): string {
+      const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+      if (!normalizedPath) {
+        return `/${lang}/`;
+      }
+      const pathWithSlash = normalizedPath.endsWith('/') ? normalizedPath : `${normalizedPath}/`;
+      return `/${lang}/${pathWithSlash}`;
+    }
+    
     render(backlinks: any[], related: any[], lang: string) {
       if (backlinks.length === 0 && related.length === 0) {
         this.innerHTML = '';
@@ -92,7 +101,7 @@ const locale = lang as Locale;
               ${backlinks.map(node => `
                 <li>
                   <a 
-                    href="/${lang}/${node.id}/" 
+                    href="${this.getLocalizedPath(node.id, lang)}" 
                     class="text-blue-600 dark:text-blue-400 hover:underline transition-colors"
                   >
                     ${this.escapeHtml(node.title)}
@@ -116,7 +125,7 @@ const locale = lang as Locale;
               ${related.map(node => `
                 <li>
                   <a 
-                    href="/${lang}/${node.id}/" 
+                    href="${this.getLocalizedPath(node.id, lang)}" 
                     class="text-blue-600 dark:text-blue-400 hover:underline transition-colors"
                   >
                     ${this.escapeHtml(node.title)}

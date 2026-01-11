@@ -1,5 +1,6 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
+import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '@/utils/slugs';
 
 const LANG_PATTERN = '{ru,en,de,tr,zh-CN,es,fr,pt,it,ar}';
 
@@ -12,6 +13,7 @@ const blog = defineCollection({
     z.object({
       title: z.string(),
       description: z.string(),
+      lang: z.enum(SUPPORTED_LOCALES).default(DEFAULT_LOCALE),
       pubDate: z.coerce.date(),
       updatedDate: z.coerce.date().optional(),
       heroImage: image().optional(),
@@ -30,6 +32,7 @@ const cases = defineCollection({
     z.object({
       title: z.string(),
       description: z.string(),
+      lang: z.enum(SUPPORTED_LOCALES).default(DEFAULT_LOCALE),
       heroImage: image().optional(),
       relatedServices: z.array(z.string()).optional(),
       relatedIndustries: z.array(z.string()).optional(),
@@ -45,6 +48,7 @@ const services = defineCollection({
     z.object({
       title: z.string(),
       description: z.string(),
+      lang: z.enum(SUPPORTED_LOCALES).default(DEFAULT_LOCALE),
       icon: z.string().optional(),
       heroImage: image().optional(),
     }),
@@ -59,6 +63,7 @@ const industries = defineCollection({
     z.object({
       title: z.string(),
       description: z.string(),
+      lang: z.enum(SUPPORTED_LOCALES).default(DEFAULT_LOCALE),
       icon: z.string().optional(),
       heroImage: image().optional(),
       relatedServices: z.array(z.string()).optional(),
@@ -74,6 +79,7 @@ const legal = defineCollection({
   schema: z.object({
     title: z.string(),
     description: z.string(),
+    lang: z.enum(SUPPORTED_LOCALES).default(DEFAULT_LOCALE),
     pubDate: z.coerce.date(),
     updatedDate: z.coerce.date().optional(),
   }),

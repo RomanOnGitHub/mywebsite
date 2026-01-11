@@ -103,6 +103,15 @@ const excludeSet = JSON.stringify(excludeSlugs);
       }
     }
     
+    getLocalizedPath(path: string, lang: string): string {
+      const normalizedPath = path.replace(/^\/+|\/+$/g, '');
+      if (!normalizedPath) {
+        return `/${lang}/`;
+      }
+      const pathWithSlash = normalizedPath.endsWith('/') ? normalizedPath : `${normalizedPath}/`;
+      return `/${lang}/${pathWithSlash}`;
+    }
+    
     render(recommendations: Array<{ node: { id: string; title: string; type?: string }; score: number; commonTags: string[] }>, lang: string) {
       this.innerHTML = `
         <section class="recommendations mt-8">
@@ -113,7 +122,7 @@ const excludeSet = JSON.stringify(excludeSlugs);
             ${recommendations.map(rec => `
               <li class="border-l-4 border-blue-500 pl-4 py-2">
                 <a 
-                  href="/${lang}/${rec.node.id}/" 
+                  href="${this.getLocalizedPath(rec.node.id, lang)}" 
                   class="text-blue-600 dark:text-blue-400 hover:underline transition-colors font-medium block"
                 >
                   ${this.escapeHtml(rec.node.title)}
