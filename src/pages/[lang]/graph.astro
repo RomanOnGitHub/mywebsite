@@ -1,0 +1,228 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { SUPPORTED_LOCALES, type Locale } from '@/utils/slugs';
+
+export function getStaticPaths() {
+  return SUPPORTED_LOCALES.map(lang => ({ 
+    params: { lang } 
+  }));
+}
+
+const { lang } = Astro.params as { lang: Locale };
+---
+
+<Layout 
+  title="Граф знаний" 
+  description="Интерактивная визуализация связей между материалами"
+  lang={lang}
+>
+  <div class="max-w-7xl mx-auto">
+    <header class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">Граф знаний</h1>
+      <p class="text-lg text-gray-600 dark:text-gray-400">
+        Исследуйте связи между материалами сайта
+      </p>
+    </header>
+    
+    <!-- Фильтры -->
+    <div class="mb-6 flex flex-wrap gap-4 items-center">
+      <div class="flex items-center gap-2">
+        <label for="filter-type" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Тип:
+        </label>
+        <select 
+          id="filter-type"
+          class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Все типы</option>
+          <option value="blog">Блог</option>
+          <option value="cases">Кейсы</option>
+          <option value="services">Услуги</option>
+          <option value="industries">Отрасли</option>
+        </select>
+      </div>
+      
+      <div class="flex items-center gap-2">
+        <label for="filter-tags" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Тег:
+        </label>
+        <select 
+          id="filter-tags"
+          class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Все теги</option>
+          <!-- Динамически заполняется из graph.nodes -->
+        </select>
+      </div>
+      
+      <button
+        id="reset-filters"
+        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors text-sm"
+      >
+        Сбросить фильтры
+      </button>
+    </div>
+    
+    <!-- Контейнер для графа -->
+    <div 
+      id="graph-container" 
+      class="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800"
+      style="width: 100%; height: 600px;"
+    ></div>
+    
+    <!-- Легенда -->
+    <div class="mt-6 flex flex-wrap gap-4 text-sm">
+      <div class="flex items-center gap-2">
+        <div class="w-4 h-4 rounded-full bg-blue-500"></div>
+        <span>Блог</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-4 h-4 rounded-full bg-green-500"></div>
+        <span>Кейсы</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-4 h-4 rounded-full bg-yellow-500"></div>
+        <span>Услуги</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-4 h-4 rounded-full bg-purple-500"></div>
+        <span>Отрасли</span>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import ForceGraph from 'force-graph';
+  
+  let graph: any = null;
+  let allData: { nodes: any[]; edges: any[] } | null = null;
+  const lang = document.documentElement.lang || 'ru';
+  
+  async function init() {
+    try {
+      const res = await fetch(`/graph-data-${lang}.json`);
+      if (!res.ok) {
+        console.error('Failed to load graph data');
+        return;
+      }
+      
+      allData = await res.json();
+      
+      // Заполнить select с тегами
+      const allTags = [...new Set(allData.nodes.flatMap((n: any) => n.tags || []))].sort();
+      const tagsSelect = document.getElementById('filter-tags') as HTMLSelectElement;
+      
+      // Очистить существующие опции (кроме "Все теги")
+      while (tagsSelect.options.length > 1) {
+        tagsSelect.remove(1);
+      }
+      
+      allTags.forEach(tag => {
+        const option = document.createElement('option');
+        option.value = tag;
+        option.textContent = tag;
+        tagsSelect.appendChild(option);
+      });
+      
+      renderGraph(allData);
+    } catch (error) {
+      console.error('Error loading graph data:', error);
+    }
+  }
+  
+  function applyFilters() {
+    if (!allData) return;
+    
+    const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
+    const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
+    
+    const type = typeSelect.value;
+    const tag = tagSelect.value;
+    
+    const filteredNodes = allData.nodes.filter((n: any) => 
+      (!type || n.type === type) &&
+      (!tag || (n.tags && n.tags.includes(tag)))
+    );
+    
+    const nodeIds = new Set(filteredNodes.map((n: any) => n.id));
+    const filteredEdges = allData.edges.filter((e: any) => 
+      nodeIds.has(e.from) && nodeIds.has(e.to)
+    );
+    
+    renderGraph({ nodes: filteredNodes, edges: filteredEdges });
+  }
+  
+  function renderGraph(data: { nodes: any[]; edges: any[] }) {
+    const container = document.getElementById('graph-container');
+    if (!container) return;
+    
+    // Уничтожить предыдущий граф
+    if (graph) {
+      graph._destructor();
+    }
+    
+    // Преобразовать edges в links для force-graph
+    const links = data.edges.map((e: any) => ({
+      source: e.from,
+      target: e.to,
+    }));
+    
+    // Создать граф
+    graph = ForceGraph()(container)
+      .graphData({ nodes: data.nodes, links })
+      .nodeLabel((n: any) => n.title)
+      .nodeColor((n: any) => {
+        const colors: Record<string, string> = {
+          blog: '#3b82f6',
+          cases: '#10b981',
+          services: '#f59e0b',
+          industries: '#8b5cf6',
+        };
+        return colors[n.type] || '#6b7280';
+      })
+      .nodeVal((n: any) => {
+        // Размер узла зависит от количества связей
+        const connections = data.edges.filter((e: any) => 
+          e.from === n.id || e.to === n.id
+        ).length;
+        return Math.max(5, Math.min(20, connections * 2));
+      })
+      .linkWidth(1)
+      .linkDirectionalArrowLength(6)
+      .linkDirectionalArrowRelPos(1)
+      .onNodeClick((node: any) => {
+        window.location.href = `/${lang}/${node.id}/`;
+      })
+      .onNodeHover((node: any) => {
+        if (node) {
+          container.style.cursor = 'pointer';
+        } else {
+          container.style.cursor = 'default';
+        }
+      });
+  }
+  
+  function resetFilters() {
+    const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
+    const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
+    
+    typeSelect.value = '';
+    tagSelect.value = '';
+    
+    if (allData) {
+      renderGraph(allData);
+    }
+  }
+  
+  // Инициализация
+  document.getElementById('filter-type')?.addEventListener('change', applyFilters);
+  document.getElementById('filter-tags')?.addEventListener('change', applyFilters);
+  document.getElementById('reset-filters')?.addEventListener('click', resetFilters);
+  
+  // Обновление при View Transitions
+  document.addEventListener('astro:page-load', init);
+  
+  // Первоначальная загрузка
+  init();
+</script>

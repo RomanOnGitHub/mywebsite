@@ -1,0 +1,84 @@
+---
+import BaseHead from '@/components/BaseHead.astro';
+import Sidebar from '@/components/Sidebar.astro';
+import Analytics from '@/components/Analytics.astro';
+import CookieConsent from '@/components/CookieConsent.astro';
+import { localeToDir } from '@/utils/slugs';
+
+interface Props {
+  title: string;
+  description: string;
+  slug?: string;
+  lang?: string;
+  structuredData?: Record<string, any>;
+}
+
+const { title, description, slug, lang = 'ru', structuredData } = Astro.props;
+const dir = localeToDir(lang);
+---
+
+<!doctype html>
+<html lang={lang} dir={dir}>
+  <head>
+    <BaseHead title={title} description={description} lang={lang} />
+    {structuredData && (
+      <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+    )}
+  </head>
+  <body 
+    class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+    data-pagefind-body
+    data-pagefind-meta={`lang:${lang}`}
+  >
+    <div class="flex min-h-screen">
+      <Sidebar slug={slug} lang={lang} />
+      <main 
+        transition:animate="fade"
+        class="flex-1 p-6 md:p-8 lg:p-12"
+      >
+        <slot />
+      </main>
+    </div>
+    <CookieConsent lang={lang} />
+    <Analytics />
+  </body>
+</html>
+
+<style>
+  /* View Transitions fade animation */
+  @view-transition {
+    navigation: auto;
+  }
+  
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 0.3s;
+    animation-timing-function: ease-in-out;
+  }
+  
+  ::view-transition-old(root) {
+    animation-name: fade-out;
+  }
+  
+  ::view-transition-new(root) {
+    animation-name: fade-in;
+  }
+  
+  @keyframes fade-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+</style>

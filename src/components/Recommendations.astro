@@ -1,0 +1,146 @@
+---
+import { SUPPORTED_LOCALES, type Locale } from '@/utils/slugs';
+
+interface Props {
+  slug: string;
+  lang: string;
+  excludeSlugs?: string[];
+}
+
+const { slug, lang, excludeSlugs = [] } = Astro.props;
+const locale = lang as Locale;
+const excludeSet = JSON.stringify(excludeSlugs);
+---
+
+<recommendations-component 
+  data-slug={slug} 
+  data-lang={locale}
+  data-exclude={excludeSet}
+></recommendations-component>
+
+<script>
+  class RecommendationsComponent extends HTMLElement {
+    async connectedCallback() {
+      await this.loadRecommendations();
+      document.addEventListener('astro:page-load', () => this.loadRecommendations());
+    }
+    
+    async loadRecommendations() {
+      const lang = this.dataset.lang || 'ru';
+      const slug = this.dataset.slug;
+      const exclude = new Set(JSON.parse(this.dataset.exclude || '[]'));
+      
+      if (!slug) {
+        this.innerHTML = '';
+        return;
+      }
+      
+      try {
+        const res = await fetch(`/graph-data-${lang}.json`);
+        if (!res.ok) {
+          console.warn(`Graph data not found for lang: ${lang}`);
+          this.innerHTML = '';
+          return;
+        }
+        
+        const graph = await res.json();
+        
+        // Формируем полный ID текущей страницы
+        const currentId = slug.includes('/') ? slug : `blog/${slug}`;
+        
+        // Находим текущий node
+        const currentNode = graph.nodes.find((n: { id: string }) => 
+          n.id === currentId || n.id.endsWith('/' + slug) || n.id.endsWith('/' + currentId)
+        );
+        
+        if (!currentNode) {
+          this.innerHTML = '';
+          return;
+        }
+        
+        const currentTags = new Set(currentNode.tags || []);
+        
+        if (currentTags.size === 0) {
+          this.innerHTML = '';
+          return;
+        }
+        
+        // Алгоритм рекомендаций:
+        // 1. Найти nodes с общими tags
+        // 2. Вычислить "степень связности" — сколько общих tags
+        // 3. Исключить уже показанные в Backlinks/Related
+        // 4. Сортировать по релевантности
+        
+        const recommendations = graph.nodes
+          .filter((n: { id: string }) => {
+            // Исключаем текущий node и уже показанные
+            return n.id !== currentNode.id && !exclude.has(n.id);
+          })
+          .map((n: { id: string; tags?: string[]; title: string; type?: string }) => {
+            const nodeTags = new Set(n.tags || []);
+            // Находим общие теги
+            const commonTags = [...currentTags].filter(t => nodeTags.has(t));
+            return { 
+              node: n, 
+              score: commonTags.length,
+              commonTags 
+            };
+          })
+          .filter((r: { score: number }) => r.score > 0)
+          .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+          .slice(0, 5);
+        
+        if (recommendations.length === 0) {
+          this.innerHTML = '';
+          return;
+        }
+        
+        // Рендерим рекомендации
+        this.render(recommendations, lang);
+      } catch (error) {
+        console.error('Error loading recommendations:', error);
+        this.innerHTML = '';
+      }
+    }
+    
+    render(recommendations: Array<{ node: { id: string; title: string; type?: string }; score: number; commonTags: string[] }>, lang: string) {
+      this.innerHTML = `
+        <section class="recommendations mt-8">
+          <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">
+            Рекомендуем также
+          </h3>
+          <ul class="space-y-3">
+            ${recommendations.map(rec => `
+              <li class="border-l-4 border-blue-500 pl-4 py-2">
+                <a 
+                  href="/${lang}/${rec.node.id}/" 
+                  class="text-blue-600 dark:text-blue-400 hover:underline transition-colors font-medium block"
+                >
+                  ${this.escapeHtml(rec.node.title)}
+                </a>
+                ${rec.node.type ? `<span class="text-xs text-gray-500 dark:text-gray-400">${rec.node.type}</span>` : ''}
+                ${rec.commonTags.length > 0 ? `
+                  <div class="mt-1 flex flex-wrap gap-1">
+                    ${rec.commonTags.slice(0, 3).map((tag: string) => `
+                      <span class="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
+                        ${this.escapeHtml(tag)}
+                      </span>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </li>
+            `).join('')}
+          </ul>
+        </section>
+      `;
+    }
+    
+    escapeHtml(text: string): string {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  }
+  
+  customElements.define('recommendations-component', RecommendationsComponent);
+</script>

@@ -1,0 +1,70 @@
+---
+import { getCollection, render } from 'astro:content';
+import LayoutPost from '@/layouts/LayoutPost.astro';
+import Stub from '@/components/Stub.astro';
+import { parseLeafBundleId, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/utils/slugs';
+
+export async function getStaticPaths() {
+  const industries = await getCollection('industries');
+  
+  const industriesBySlug = new Map<string, Map<Locale, typeof industries[0]>>();
+  for (const industry of industries) {
+    const { slug, lang } = parseLeafBundleId(industry.id);
+    if (!industriesBySlug.has(slug)) {
+      industriesBySlug.set(slug, new Map());
+    }
+    industriesBySlug.get(slug)!.set(lang, industry);
+  }
+  
+  const paths = [];
+  for (const lang of SUPPORTED_LOCALES) {
+    for (const [slug, langIndustries] of industriesBySlug.entries()) {
+      const hasTranslation = langIndustries.has(lang);
+      const industry = langIndustries.get(lang) || 
+                       langIndustries.get(DEFAULT_LOCALE) || 
+                       Array.from(langIndustries.values())[0];
+      
+      paths.push({
+        params: { lang, slug: slug },
+        props: { industry, lang, hasTranslation, slug },
+      });
+    }
+  }
+  
+  return paths;
+}
+
+const { industry, lang, hasTranslation, slug } = Astro.props;
+const fullSlug = `${slug}`;
+
+let Content: any = null;
+if (hasTranslation) {
+  const rendered = await render(industry);
+  Content = rendered.Content;
+}
+
+const structuredData = hasTranslation ? {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": industry.data.title,
+  "description": industry.data.description,
+  ...(industry.data.heroImage && { 
+    "image": industry.data.heroImage.src 
+  }),
+} : undefined;
+---
+
+<LayoutPost 
+  title={industry.data.title} 
+  description={industry.data.description}
+  slug={fullSlug}
+  lang={lang}
+  collection="industries"
+  structuredData={structuredData}
+>
+  {hasTranslation && Content ? (
+    <Content />
+  ) : (
+    <Stub slug={fullSlug} lang={lang} collection="industries" />
+  )}
+</LayoutPost>

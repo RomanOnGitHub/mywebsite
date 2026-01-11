@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "id": "blog/test-post",
+      "title": "Тестовый пост",
+      "type": "blog",
+      "lang": "ru",
+      "slug": "test-post",
+      "tags": [
+        "test",
+        "blog"
+      ]
+    },
+    {
+      "id": "cases/test-case",
+      "title": "Тестовый кейс",
+      "type": "cases",
+      "lang": "ru",
+      "slug": "test-case",
+      "tags": []
+    },
+    {
+      "id": "services/test-service",
+      "title": "Тестовая услуга",
+      "type": "services",
+      "lang": "ru",
+      "slug": "test-service",
+      "tags": []
+    },
+    {
+      "id": "industries/test-industry",
+      "title": "Тестовая отрасль",
+      "type": "industries",
+      "lang": "ru",
+      "slug": "test-industry",
+      "tags": []
+    }
+  ],
+  "edges": []
+}

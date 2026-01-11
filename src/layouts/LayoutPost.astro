@@ -1,0 +1,153 @@
+---
+import Layout from './Layout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import Backlinks from '@/components/Backlinks.astro';
+import Recommendations from '@/components/Recommendations.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  slug: string;
+  lang: string;
+  collection: string;
+  structuredData?: Record<string, any>;
+}
+
+const { title, description, slug, lang, collection, structuredData } = Astro.props;
+---
+
+<Layout 
+  title={title} 
+  description={description} 
+  slug={slug} 
+  lang={lang} 
+  structuredData={structuredData}
+>
+  <Breadcrumbs title={title} />
+  
+  <article class="max-w-none">
+    <header class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">{title}</h1>
+      {description && (
+        <p class="text-xl text-gray-600 dark:text-gray-400">{description}</p>
+      )}
+    </header>
+    
+    <div class="prose-content">
+      <slot />
+    </div>
+  </article>
+  
+  <Backlinks slug={slug} lang={lang} />
+  
+  <Recommendations slug={slug} lang={lang} />
+</Layout>
+
+<style>
+  /* Prose стили для контента */
+  .prose-content {
+    font-size: 1.125rem;
+    line-height: 1.75;
+    color: rgb(17 24 39);
+  }
+  
+  .dark .prose-content {
+    color: rgb(243 244 246);
+  }
+  
+  .prose-content :global(h1),
+  .prose-content :global(h2),
+  .prose-content :global(h3),
+  .prose-content :global(h4) {
+    font-weight: 700;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  .prose-content :global(h1) {
+    font-size: 2.25rem;
+  }
+  
+  .prose-content :global(h2) {
+    font-size: 1.875rem;
+  }
+  
+  .prose-content :global(h3) {
+    font-size: 1.5rem;
+  }
+  
+  .prose-content :global(h4) {
+    font-size: 1.25rem;
+  }
+  
+  .prose-content :global(p) {
+    margin-bottom: 1rem;
+    line-height: 1.75;
+  }
+  
+  .prose-content :global(a) {
+    color: rgb(37 99 235);
+    text-decoration: underline;
+  }
+  
+  .dark .prose-content :global(a) {
+    color: rgb(96 165 250);
+  }
+  
+  .prose-content :global(a:hover) {
+    text-decoration: underline;
+  }
+  
+  .prose-content :global(code) {
+    background-color: rgb(243 244 246);
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  
+  .dark .prose-content :global(code) {
+    background-color: rgb(31 41 55);
+  }
+  
+  .prose-content :global(pre) {
+    background-color: rgb(243 244 246);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin-bottom: 1rem;
+  }
+  
+  .dark .prose-content :global(pre) {
+    background-color: rgb(31 41 55);
+  }
+  
+  .prose-content :global(pre code) {
+    background-color: transparent;
+    padding: 0;
+  }
+  
+  .prose-content :global(blockquote) {
+    border-left: 4px solid rgb(59 130 246);
+    padding-left: 1rem;
+    font-style: italic;
+    margin: 1rem 0;
+  }
+  
+  .prose-content :global(ul),
+  .prose-content :global(ol) {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+  
+  .prose-content :global(li) {
+    margin-bottom: 0.5rem;
+  }
+  
+  .prose-content :global(img) {
+    border-radius: 0.5rem;
+    margin: 1.5rem 0;
+    max-width: 100%;
+    height: auto;
+  }
+</style>

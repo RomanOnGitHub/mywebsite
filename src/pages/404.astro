@@ -1,0 +1,89 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { SUPPORTED_LOCALES } from '@/utils/slugs';
+
+const translations: Record<string, { title: string; message: string; back: string }> = {
+  ru: {
+    title: 'Страница не найдена',
+    message: 'К сожалению, запрашиваемая страница не существует.',
+    back: 'Вернуться на главную',
+  },
+  en: {
+    title: 'Page Not Found',
+    message: 'Sorry, the requested page does not exist.',
+    back: 'Back to Home',
+  },
+  de: {
+    title: 'Seite nicht gefunden',
+    message: 'Entschuldigung, die angeforderte Seite existiert nicht.',
+    back: 'Zur Startseite',
+  },
+  tr: {
+    title: 'Sayfa Bulunamadı',
+    message: 'Üzgünüz, istenen sayfa mevcut değil.',
+    back: 'Ana Sayfaya Dön',
+  },
+  'zh-CN': {
+    title: '页面未找到',
+    message: '抱歉，请求的页面不存在。',
+    back: '返回首页',
+  },
+  es: {
+    title: 'Página no encontrada',
+    message: 'Lo sentimos, la página solicitada no existe.',
+    back: 'Volver al inicio',
+  },
+  fr: {
+    title: 'Page non trouvée',
+    message: 'Désolé, la page demandée n\'existe pas.',
+    back: 'Retour à l\'accueil',
+  },
+  pt: {
+    title: 'Página não encontrada',
+    message: 'Desculpe, a página solicitada não existe.',
+    back: 'Voltar ao início',
+  },
+  it: {
+    title: 'Pagina non trovata',
+    message: 'Spiacenti, la pagina richiesta non esiste.',
+    back: 'Torna alla home',
+  },
+  ar: {
+    title: 'الصفحة غير موجودة',
+    message: 'عذراً، الصفحة المطلوبة غير موجودة.',
+    back: 'العودة إلى الصفحة الرئيسية',
+  },
+};
+
+// Определяем язык из URL или используем default
+const urlLang = Astro.url.pathname.split('/')[1];
+const lang = SUPPORTED_LOCALES.includes(urlLang as any) ? urlLang : 'ru';
+const t = translations[lang] || translations.ru;
+---
+
+<Layout 
+  title={t.title} 
+  description={t.message}
+  lang={lang}
+>
+  <div class="max-w-2xl mx-auto text-center py-16 px-4">
+    <h1 class="text-6xl font-bold mb-4">404</h1>
+    <h2 class="text-3xl font-semibold mb-4">{t.title}</h2>
+    <p class="text-lg text-gray-600 dark:text-gray-400 mb-8">{t.message}</p>
+    
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+      <a 
+        href={`/${lang}/`}
+        class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors font-medium"
+      >
+        {t.back}
+      </a>
+      <a 
+        href={`/${lang}/graph/`}
+        class="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors font-medium"
+      >
+        Граф знаний
+      </a>
+    </div>
+  </div>
+</Layout>

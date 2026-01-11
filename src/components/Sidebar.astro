@@ -1,0 +1,18 @@
+---
+import Backlinks from './Backlinks.astro';
+
+interface Props {
+  slug?: string;
+  lang?: string;
+}
+
+const { slug, lang = 'ru' } = Astro.props;
+---
+
+<aside 
+  transition:persist="sidebar" 
+  transition:name="sidebar"
+  class="w-64 p-6 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 min-h-screen"
+>
+  {slug && <Backlinks slug={slug} lang={lang} />}
+</aside>

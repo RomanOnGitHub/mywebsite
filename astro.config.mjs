@@ -35,8 +35,18 @@ export default defineConfig({
   },
   env: {
     schema: {
-      SITE_URL: envField.string({ context: 'client', access: 'public' }),
-      WEB3FORMS_KEY: envField.string({ context: 'server', access: 'secret' }),
+      SITE_URL: envField.string({ 
+        context: 'client', 
+        access: 'public',
+        optional: true,
+        default: 'https://example.com',
+      }),
+      WEB3FORMS_KEY: envField.string({ 
+        context: 'server', 
+        access: 'secret',
+        optional: true,
+        default: '',
+      }),
     }
   }
 });

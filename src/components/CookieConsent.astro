@@ -1,0 +1,148 @@
+---
+import { SUPPORTED_LOCALES, RTL_LOCALES, type Locale } from '@/utils/slugs';
+
+interface Props {
+  lang?: string;
+}
+
+const { lang = 'ru' } = Astro.props;
+const locale = lang as Locale;
+const isRTL = RTL_LOCALES.includes(locale);
+
+// Переводы для 10 языков
+const translations: Record<Locale, { title: string; message: string; accept: string; decline: string }> = {
+  ru: {
+    title: 'Использование cookies',
+    message: 'Мы используем cookies для улучшения работы сайта и аналитики.',
+    accept: 'Принять',
+    decline: 'Отклонить',
+  },
+  en: {
+    title: 'Cookie Usage',
+    message: 'We use cookies to improve site performance and analytics.',
+    accept: 'Accept',
+    decline: 'Decline',
+  },
+  de: {
+    title: 'Cookie-Verwendung',
+    message: 'Wir verwenden Cookies zur Verbesserung der Website-Leistung und Analyse.',
+    accept: 'Akzeptieren',
+    decline: 'Ablehnen',
+  },
+  tr: {
+    title: 'Çerez Kullanımı',
+    message: 'Site performansını ve analitiği iyileştirmek için çerezler kullanıyoruz.',
+    accept: 'Kabul Et',
+    decline: 'Reddet',
+  },
+  'zh-CN': {
+    title: 'Cookie 使用',
+    message: '我们使用 cookies 来改善网站性能和数据分析。',
+    accept: '接受',
+    decline: '拒绝',
+  },
+  es: {
+    title: 'Uso de cookies',
+    message: 'Utilizamos cookies para mejorar el rendimiento del sitio y el análisis.',
+    accept: 'Aceptar',
+    decline: 'Rechazar',
+  },
+  fr: {
+    title: 'Utilisation des cookies',
+    message: 'Nous utilisons des cookies pour améliorer les performances du site et l\'analyse.',
+    accept: 'Accepter',
+    decline: 'Refuser',
+  },
+  pt: {
+    title: 'Uso de cookies',
+    message: 'Usamos cookies para melhorar o desempenho do site e a análise.',
+    accept: 'Aceitar',
+    decline: 'Recusar',
+  },
+  it: {
+    title: 'Uso dei cookie',
+    message: 'Utilizziamo i cookie per migliorare le prestazioni del sito e l\'analisi.',
+    accept: 'Accetta',
+    decline: 'Rifiuta',
+  },
+  ar: {
+    title: 'استخدام ملفات تعريف الارتباط',
+    message: 'نستخدم ملفات تعريف الارتباط لتحسين أداء الموقع والتحليلات.',
+    accept: 'قبول',
+    decline: 'رفض',
+  },
+};
+
+const t = translations[locale] || translations.ru;
+---
+
+<div 
+  id="cookie-consent" 
+  transition:persist="cookie-consent"
+  class="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg p-4 md:p-6"
+  style:display="none"
+  data-lang={lang}
+>
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center gap-4">
+    <div class="flex-1">
+      <h3 class="font-semibold text-lg mb-1">{t.title}</h3>
+      <p class="text-sm text-gray-600 dark:text-gray-300">{t.message}</p>
+    </div>
+    <div class="flex gap-3" dir={isRTL ? 'rtl' : 'ltr'}>
+      <button
+        id="cookie-accept"
+        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+      >
+        {t.accept}
+      </button>
+      <button
+        id="cookie-decline"
+        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors"
+      >
+        {t.decline}
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const banner = document.getElementById('cookie-consent');
+    if (!banner) return;
+
+    // Проверяем, было ли уже принято решение
+    const consent = localStorage.getItem('cookie-consent');
+    
+    if (consent === null) {
+      // Показываем баннер только если решение не принято
+      banner.style.display = 'block';
+    }
+
+    function acceptCookies() {
+      localStorage.setItem('cookie-consent', 'accepted');
+      localStorage.setItem('theme', localStorage.getItem('theme') || 'light');
+      banner.style.display = 'none';
+      
+      // Отправляем событие для Analytics
+      document.dispatchEvent(new CustomEvent('cookie-consent-accepted'));
+    }
+
+    function declineCookies() {
+      localStorage.setItem('cookie-consent', 'declined');
+      banner.style.display = 'none';
+    }
+
+    document.getElementById('cookie-accept')?.addEventListener('click', acceptCookies);
+    document.getElementById('cookie-decline')?.addEventListener('click', declineCookies);
+
+    // Обновляем при View Transitions
+    document.addEventListener('astro:page-load', () => {
+      const consent = localStorage.getItem('cookie-consent');
+      if (consent === null) {
+        banner.style.display = 'block';
+      } else {
+        banner.style.display = 'none';
+      }
+    });
+  })();
+</script>

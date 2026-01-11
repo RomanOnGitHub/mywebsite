@@ -1,0 +1,70 @@
+---
+import { getCollection, render } from 'astro:content';
+import LayoutPost from '@/layouts/LayoutPost.astro';
+import Stub from '@/components/Stub.astro';
+import { parseLeafBundleId, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/utils/slugs';
+
+export async function getStaticPaths() {
+  const cases = await getCollection('cases');
+  
+  const casesBySlug = new Map<string, Map<Locale, typeof cases[0]>>();
+  for (const caseItem of cases) {
+    const { slug, lang } = parseLeafBundleId(caseItem.id);
+    if (!casesBySlug.has(slug)) {
+      casesBySlug.set(slug, new Map());
+    }
+    casesBySlug.get(slug)!.set(lang, caseItem);
+  }
+  
+  const paths = [];
+  for (const lang of SUPPORTED_LOCALES) {
+    for (const [slug, langCases] of casesBySlug.entries()) {
+      const hasTranslation = langCases.has(lang);
+      const caseItem = langCases.get(lang) || 
+                       langCases.get(DEFAULT_LOCALE) || 
+                       Array.from(langCases.values())[0];
+      
+      paths.push({
+        params: { lang, slug: slug },
+        props: { caseItem, lang, hasTranslation, slug },
+      });
+    }
+  }
+  
+  return paths;
+}
+
+const { caseItem, lang, hasTranslation, slug } = Astro.props;
+const fullSlug = `${slug}`;
+
+let Content: any = null;
+if (hasTranslation) {
+  const rendered = await render(caseItem);
+  Content = rendered.Content;
+}
+
+const structuredData = hasTranslation ? {
+  "@context": "https://schema.org",
+  "@type": "CaseStudy",
+  "headline": caseItem.data.title,
+  "description": caseItem.data.description,
+  ...(caseItem.data.heroImage && { 
+    "image": caseItem.data.heroImage.src 
+  }),
+} : undefined;
+---
+
+<LayoutPost 
+  title={caseItem.data.title} 
+  description={caseItem.data.description}
+  slug={fullSlug}
+  lang={lang}
+  collection="cases"
+  structuredData={structuredData}
+>
+  {hasTranslation && Content ? (
+    <Content />
+  ) : (
+    <Stub slug={fullSlug} lang={lang} collection="cases" />
+  )}
+</LayoutPost>

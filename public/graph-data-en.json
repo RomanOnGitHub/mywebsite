@@ -1,0 +1,40 @@
+{
+  "nodes": [
+    {
+      "id": "blog/test-post",
+      "title": "Test Post",
+      "type": "blog",
+      "lang": "en",
+      "slug": "test-post",
+      "tags": [
+        "test",
+        "blog"
+      ]
+    },
+    {
+      "id": "cases/test-case",
+      "title": "Test Case",
+      "type": "cases",
+      "lang": "en",
+      "slug": "test-case",
+      "tags": []
+    },
+    {
+      "id": "services/test-service",
+      "title": "Test Service",
+      "type": "services",
+      "lang": "en",
+      "slug": "test-service",
+      "tags": []
+    },
+    {
+      "id": "industries/test-industry",
+      "title": "Test Industry",
+      "type": "industries",
+      "lang": "en",
+      "slug": "test-industry",
+      "tags": []
+    }
+  ],
+  "edges": []
+}

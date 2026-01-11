@@ -1,0 +1,88 @@
+---
+import { getCollection, render } from 'astro:content';
+import LayoutPost from '@/layouts/LayoutPost.astro';
+import Stub from '@/components/Stub.astro';
+import { parseLeafBundleId, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/utils/slugs';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('blog');
+  
+  // Группируем посты по slug (Leaf Bundle паттерн)
+  const postsBySlug = new Map<string, Map<Locale, typeof posts[0]>>();
+  for (const post of posts) {
+    const { slug, lang } = parseLeafBundleId(post.id);
+    if (!postsBySlug.has(slug)) {
+      postsBySlug.set(slug, new Map());
+    }
+    postsBySlug.get(slug)!.set(lang, post);
+  }
+  
+  // Генерируем пути для ВСЕХ языков × ВСЕХ slugs
+  // Это обеспечивает Stub для отсутствующих переводов
+  const paths = [];
+  
+  for (const lang of SUPPORTED_LOCALES) {
+    for (const [slug, langPosts] of postsBySlug.entries()) {
+      const hasTranslation = langPosts.has(lang);
+      
+      // Если нет перевода — используем default locale как fallback для данных
+      const post = langPosts.get(lang) || 
+                   langPosts.get(DEFAULT_LOCALE) || 
+                   Array.from(langPosts.values())[0];
+      
+      paths.push({
+        params: { 
+          lang, 
+          slug: slug // Для [...slug] передаём строку, Astro сам разобьёт
+        },
+        props: { 
+          post, 
+          lang, 
+          hasTranslation, 
+          slug 
+        },
+      });
+    }
+  }
+  
+  return paths;
+}
+
+const { post, lang, hasTranslation, slug } = Astro.props;
+const fullSlug = `${slug}`; // Полный slug для использования в компонентах
+
+// Рендерим контент только если есть перевод
+let Content: any = null;
+if (hasTranslation) {
+  const rendered = await render(post);
+  Content = rendered.Content;
+}
+
+// Structured data для SEO
+const structuredData = hasTranslation ? {
+  "@context": "https://schema.org",
+  "@type": "Article",
+  "headline": post.data.title,
+  "description": post.data.description,
+  "datePublished": post.data.pubDate.toISOString(),
+  ...(post.data.updatedDate && { "dateModified": post.data.updatedDate.toISOString() }),
+  ...(post.data.heroImage && { 
+    "image": post.data.heroImage.src 
+  }),
+} : undefined;
+---
+
+<LayoutPost 
+  title={post.data.title} 
+  description={post.data.description}
+  slug={fullSlug}
+  lang={lang}
+  collection="blog"
+  structuredData={structuredData}
+>
+  {hasTranslation && Content ? (
+    <Content />
+  ) : (
+    <Stub slug={fullSlug} lang={lang} collection="blog" />
+  )}
+</LayoutPost>

@@ -1,0 +1,86 @@
+---
+import { getCollection, render } from 'astro:content';
+import Layout from '@/layouts/Layout.astro';
+import Stub from '@/components/Stub.astro';
+import { parseLeafBundleId, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/utils/slugs';
+
+export async function getStaticPaths() {
+  const legal = await getCollection('legal');
+  
+  const legalBySlug = new Map<string, Map<Locale, typeof legal[0]>>();
+  for (const legalItem of legal) {
+    const { slug, lang } = parseLeafBundleId(legalItem.id);
+    if (!legalBySlug.has(slug)) {
+      legalBySlug.set(slug, new Map());
+    }
+    legalBySlug.get(slug)!.set(lang, legalItem);
+  }
+  
+  const paths = [];
+  for (const lang of SUPPORTED_LOCALES) {
+    for (const [slug, langLegal] of legalBySlug.entries()) {
+      const hasTranslation = langLegal.has(lang);
+      const legalItem = langLegal.get(lang) || 
+                        langLegal.get(DEFAULT_LOCALE) || 
+                        Array.from(langLegal.values())[0];
+      
+      paths.push({
+        params: { lang, slug: slug },
+        props: { legalItem, lang, hasTranslation, slug },
+      });
+    }
+  }
+  
+  return paths;
+}
+
+const { legalItem, lang, hasTranslation, slug } = Astro.props;
+const fullSlug = `${slug}`;
+
+let Content: any = null;
+if (hasTranslation) {
+  const rendered = await render(legalItem);
+  Content = rendered.Content;
+}
+
+const structuredData = hasTranslation ? {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "headline": legalItem.data.title,
+  "description": legalItem.data.description,
+  "datePublished": legalItem.data.pubDate.toISOString(),
+  ...(legalItem.data.updatedDate && { "dateModified": legalItem.data.updatedDate.toISOString() }),
+} : undefined;
+---
+
+<Layout 
+  title={legalItem.data.title} 
+  description={legalItem.data.description}
+  lang={lang}
+  structuredData={structuredData}
+>
+  <article class="prose prose-lg dark:prose-invert max-w-4xl mx-auto">
+    <header class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">{legalItem.data.title}</h1>
+      {legalItem.data.description && (
+        <p class="text-xl text-gray-600 dark:text-gray-400">{legalItem.data.description}</p>
+      )}
+      <div class="text-sm text-gray-500 dark:text-gray-500 mt-4">
+        <time datetime={legalItem.data.pubDate.toISOString()}>
+          Опубликовано: {legalItem.data.pubDate.toLocaleDateString(lang)}
+        </time>
+        {legalItem.data.updatedDate && (
+          <time datetime={legalItem.data.updatedDate.toISOString()} class="ml-4">
+            Обновлено: {legalItem.data.updatedDate.toLocaleDateString(lang)}
+          </time>
+        )}
+      </div>
+    </header>
+    
+    {hasTranslation && Content ? (
+      <Content />
+    ) : (
+      <Stub slug={fullSlug} lang={lang} collection="legal" />
+    )}
+  </article>
+</Layout>

@@ -1,0 +1,167 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { SUPPORTED_LOCALES } from '@/utils/slugs';
+import { getCollection } from 'astro:content';
+
+// Получаем последние записи для каждого типа контента
+const [blogPosts, cases, services, industries] = await Promise.all([
+  getCollection('blog'),
+  getCollection('cases'),
+  getCollection('services'),
+  getCollection('industries'),
+]);
+
+// Сортируем по дате публикации (для blog) и берём последние 5
+const latestBlog = blogPosts
+  .filter(post => post.data.pubDate)
+  .sort((a, b) => b.data.pubDate!.getTime() - a.data.pubDate!.getTime())
+  .slice(0, 5);
+
+const latestCases = cases.slice(0, 5);
+const latestServices = services.slice(0, 5);
+const latestIndustries = industries.slice(0, 5);
+---
+
+<Layout 
+  title="Главная страница" 
+  description="Система связей и граф знаний"
+  lang="ru"
+>
+  <div class="max-w-7xl mx-auto">
+    <!-- Hero Section -->
+    <section class="text-center py-16 mb-12">
+      <h1 class="text-5xl font-bold mb-4">Добро пожаловать</h1>
+      <p class="text-xl text-gray-600 dark:text-gray-400 mb-8">
+        Исследуйте связи между материалами через граф знаний
+      </p>
+      
+      <!-- Language Selector -->
+      <div class="flex flex-wrap justify-center gap-3 mb-8">
+        {SUPPORTED_LOCALES.map(locale => (
+          <a
+            href={`/${locale}/`}
+            class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+          >
+            {locale.toUpperCase()}
+          </a>
+        ))}
+      </div>
+      
+      <div class="flex flex-wrap justify-center gap-4">
+        <a
+          href="/ru/graph/"
+          class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium"
+        >
+          Граф знаний
+        </a>
+        <a
+          href="/ru/blog/"
+          class="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors font-medium"
+        >
+          Блог
+        </a>
+      </div>
+    </section>
+    
+    <!-- Latest Content -->
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Последние записи блога</h2>
+        <ul class="space-y-2">
+          {latestBlog.map(post => {
+            const slug = post.id.split('/').slice(0, -1).join('/');
+            return (
+              <li>
+                <a 
+                  href={`/ru/blog/${slug}/`}
+                  class="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {post.data.title}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Кейсы</h2>
+        <ul class="space-y-2">
+          {latestCases.map(caseItem => {
+            const slug = caseItem.id.split('/').slice(0, -1).join('/');
+            return (
+              <li>
+                <a 
+                  href={`/ru/cases/${slug}/`}
+                  class="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {caseItem.data.title}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Услуги</h2>
+        <ul class="space-y-2">
+          {latestServices.map(service => {
+            const slug = service.id.split('/').slice(0, -1).join('/');
+            return (
+              <li>
+                <a 
+                  href={`/ru/services/${slug}/`}
+                  class="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {service.data.title}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      
+      <div>
+        <h2 class="text-2xl font-bold mb-4">Отрасли</h2>
+        <ul class="space-y-2">
+          {latestIndustries.map(industry => {
+            const slug = industry.id.split('/').slice(0, -1).join('/');
+            return (
+              <li>
+                <a 
+                  href={`/ru/industries/${slug}/`}
+                  class="text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {industry.data.title}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </section>
+    
+    <!-- Quick Links -->
+    <section class="text-center">
+      <h2 class="text-3xl font-bold mb-6">Разделы сайта</h2>
+      <div class="flex flex-wrap justify-center gap-4">
+        <a href="/ru/blog/" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+          Блог
+        </a>
+        <a href="/ru/cases/" class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+          Кейсы
+        </a>
+        <a href="/ru/services/" class="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+          Услуги
+        </a>
+        <a href="/ru/industries/" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+          Отрасли
+        </a>
+        <a href="/ru/graph/" class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors">
+          Граф знаний
+        </a>
+      </div>
+    </section>
+  </div>
+</Layout>

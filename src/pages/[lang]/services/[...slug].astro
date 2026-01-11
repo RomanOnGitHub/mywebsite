@@ -1,0 +1,70 @@
+---
+import { getCollection, render } from 'astro:content';
+import LayoutPost from '@/layouts/LayoutPost.astro';
+import Stub from '@/components/Stub.astro';
+import { parseLeafBundleId, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/utils/slugs';
+
+export async function getStaticPaths() {
+  const services = await getCollection('services');
+  
+  const servicesBySlug = new Map<string, Map<Locale, typeof services[0]>>();
+  for (const service of services) {
+    const { slug, lang } = parseLeafBundleId(service.id);
+    if (!servicesBySlug.has(slug)) {
+      servicesBySlug.set(slug, new Map());
+    }
+    servicesBySlug.get(slug)!.set(lang, service);
+  }
+  
+  const paths = [];
+  for (const lang of SUPPORTED_LOCALES) {
+    for (const [slug, langServices] of servicesBySlug.entries()) {
+      const hasTranslation = langServices.has(lang);
+      const service = langServices.get(lang) || 
+                      langServices.get(DEFAULT_LOCALE) || 
+                      Array.from(langServices.values())[0];
+      
+      paths.push({
+        params: { lang, slug: slug },
+        props: { service, lang, hasTranslation, slug },
+      });
+    }
+  }
+  
+  return paths;
+}
+
+const { service, lang, hasTranslation, slug } = Astro.props;
+const fullSlug = `${slug}`;
+
+let Content: any = null;
+if (hasTranslation) {
+  const rendered = await render(service);
+  Content = rendered.Content;
+}
+
+const structuredData = hasTranslation ? {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  "name": service.data.title,
+  "description": service.data.description,
+  ...(service.data.heroImage && { 
+    "image": service.data.heroImage.src 
+  }),
+} : undefined;
+---
+
+<LayoutPost 
+  title={service.data.title} 
+  description={service.data.description}
+  slug={fullSlug}
+  lang={lang}
+  collection="services"
+  structuredData={structuredData}
+>
+  {hasTranslation && Content ? (
+    <Content />
+  ) : (
+    <Stub slug={fullSlug} lang={lang} collection="services" />
+  )}
+</LayoutPost>
