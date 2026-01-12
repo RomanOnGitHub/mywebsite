@@ -24,7 +24,7 @@ const { title, description, slug, lang, collection, structuredData } = Astro.pro
   lang={lang} 
   structuredData={structuredData}
 >
-  <Breadcrumbs title={title} />
+  <Breadcrumbs title={title} lang={lang} />
   
   <article class="max-w-none" transition:name="article">
     <header class="mb-8">

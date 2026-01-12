@@ -1,0 +1,84 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import { SUPPORTED_LOCALES, type Locale, filterByLang, getLocalizedPath } from '@/utils/slugs';
+import { getCollection, type CollectionEntry } from 'astro:content';
+import { parseLeafBundleId } from '@/utils/slugs';
+import HeroImage from '@/components/HeroImage.astro';
+
+interface Props {
+  lang: Locale;
+}
+
+export function getStaticPaths() {
+  return SUPPORTED_LOCALES.map(lang => ({ 
+    params: { lang } 
+  }));
+}
+
+const { lang } = Astro.params as Props;
+
+// Получаем все услуги
+let allServices: CollectionEntry<'services'>[] = [];
+
+try {
+  allServices = await getCollection('services');
+} catch (error) {
+  Astro.logger.error(`Error loading services collection for lang ${lang}:`, error);
+}
+
+// Фильтруем по языку
+const services = filterByLang(allServices, lang);
+---
+
+<Layout 
+  title="Услуги" 
+  description="Наши услуги и решения"
+  lang={lang}
+>
+  <div class="max-w-7xl mx-auto">
+    <Breadcrumbs title="Услуги" lang={lang} />
+    <header class="mb-8">
+      <h1 class="text-4xl font-bold mb-4">Услуги</h1>
+      <p class="text-lg text-gray-600 dark:text-gray-400">
+        Наши услуги и решения для вашего бизнеса
+      </p>
+    </header>
+
+    {services.length > 0 ? (
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {services.map(service => {
+          const { slug } = parseLeafBundleId(service.id);
+          return (
+            <article class="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+              <a href={getLocalizedPath(`services/${slug}/`, lang)} data-astro-prefetch>
+                {service.data.heroImage && (
+                  <HeroImage 
+                    image={service.data.heroImage} 
+                    alt={service.data.title}
+                    width={400}
+                    height={250}
+                  />
+                )}
+                <div class="p-6">
+                  <h2 class="text-xl font-semibold mb-2 text-gray-900 dark:text-gray-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    {service.data.title}
+                  </h2>
+                  <p class="text-gray-600 dark:text-gray-400 line-clamp-3">
+                    {service.data.description}
+                  </p>
+                </div>
+              </a>
+            </article>
+          );
+        })}
+      </div>
+    ) : (
+      <div class="text-center py-16">
+        <p class="text-lg text-gray-600 dark:text-gray-400">
+          Пока нет услуг на этом языке.
+        </p>
+      </div>
+    )}
+  </div>
+</Layout>

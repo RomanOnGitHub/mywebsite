@@ -1,25 +1,70 @@
 ---
+import { SUPPORTED_LOCALES, type Locale, getLocalizedPath } from '@/utils/slugs';
+
 interface Props {
   title?: string;
+  lang?: Locale;
 }
 
-const { title } = Astro.props;
+const { title, lang } = Astro.props;
+
+// Определяем язык из URL или props
+const currentLang = lang || (Astro.url.pathname.split('/').find(seg => SUPPORTED_LOCALES.includes(seg as Locale)) as Locale) || 'ru';
+
+// Переводы для хлебных крошек
+const translations: Record<Locale, { home: string; blog: string; cases: string; services: string; industries: string; graph: string; legal: string }> = {
+  ru: { home: 'Главная', blog: 'Блог', cases: 'Кейсы', services: 'Услуги', industries: 'Отрасли', graph: 'Граф знаний', legal: 'Правовая информация' },
+  en: { home: 'Home', blog: 'Blog', cases: 'Cases', services: 'Services', industries: 'Industries', graph: 'Knowledge Graph', legal: 'Legal' },
+  de: { home: 'Startseite', blog: 'Blog', cases: 'Fälle', services: 'Dienstleistungen', industries: 'Branchen', graph: 'Wissensgraph', legal: 'Rechtliches' },
+  tr: { home: 'Ana Sayfa', blog: 'Blog', cases: 'Vakalar', services: 'Hizmetler', industries: 'Sektörler', graph: 'Bilgi Grafiği', legal: 'Yasal' },
+  'zh-cn': { home: '首页', blog: '博客', cases: '案例', services: '服务', industries: '行业', graph: '知识图谱', legal: '法律信息' },
+  es: { home: 'Inicio', blog: 'Blog', cases: 'Casos', services: 'Servicios', industries: 'Industrias', graph: 'Grafo de Conocimiento', legal: 'Legal' },
+  fr: { home: 'Accueil', blog: 'Blog', cases: 'Cas', services: 'Services', industries: 'Industries', graph: 'Graphe de Connaissance', legal: 'Légal' },
+  pt: { home: 'Início', blog: 'Blog', cases: 'Casos', services: 'Serviços', industries: 'Indústrias', graph: 'Grafo de Conhecimento', legal: 'Legal' },
+  it: { home: 'Home', blog: 'Blog', cases: 'Casi', services: 'Servizi', industries: 'Industrie', graph: 'Grafo della Conoscenza', legal: 'Legale' },
+  ar: { home: 'الرئيسية', blog: 'المدونة', cases: 'الحالات', services: 'الخدمات', industries: 'الصناعات', graph: 'رسم المعرفة', legal: 'قانوني' },
+};
+
+const t = translations[currentLang] || translations.ru;
+
 const segments = Astro.url.pathname.split('/').filter(Boolean);
 
-// Создаём хлебные крошки из сегментов URL
-const crumbs = segments.map((segment, i) => {
-  const path = '/' + segments.slice(0, i + 1).join('/');
-  // Улучшаем читаемость: заменяем дефисы на пробелы и делаем первую букву заглавной
-  const label = segment
-    .replace(/-/g, ' ')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+// Фильтруем сегменты, исключая языковой сегмент из отображения, но учитывая его в путях
+const nonLangSegments = segments.filter(seg => !SUPPORTED_LOCALES.includes(seg as Locale));
+
+// Создаём хлебные крошки из сегментов URL (без языкового сегмента в отображении)
+const crumbs = nonLangSegments.map((segment, i) => {
+  // Строим путь с учётом языкового сегмента
+  const pathSegments = [currentLang, ...nonLangSegments.slice(0, i + 1)];
+  const path = '/' + pathSegments.join('/') + '/';
+  
+  // Используем переводы для известных сегментов
+  let label: string;
+  if (segment === 'blog') {
+    label = t.blog;
+  } else if (segment === 'cases') {
+    label = t.cases;
+  } else if (segment === 'services') {
+    label = t.services;
+  } else if (segment === 'industries') {
+    label = t.industries;
+  } else if (segment === 'graph') {
+    label = t.graph;
+  } else if (segment === 'legal') {
+    label = t.legal;
+  } else {
+    // Для остальных: заменяем дефисы на пробелы и делаем первую букву заглавной
+    label = segment
+      .replace(/-/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
   
   return {
     label,
-    href: path + (path !== '/' ? '/' : ''),
-    isLast: i === segments.length - 1,
+    href: path,
+    isLast: i === nonLangSegments.length - 1,
   };
 });
 ---
@@ -38,11 +83,11 @@ const crumbs = segments.map((segment, i) => {
       class="flex items-center"
     >
       <a 
-        href="/" 
+        href={getLocalizedPath('', currentLang)}
         itemprop="item"
         class="hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
       >
-        <span itemprop="name">Главная</span>
+        <span itemprop="name">{t.home}</span>
       </a>
       <meta itemprop="position" content="1" />
     </li>
@@ -69,6 +114,7 @@ const crumbs = segments.map((segment, i) => {
               href={crumb.href}
               itemprop="item"
               class="hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+              data-astro-prefetch
             >
               <span itemprop="name">{crumb.label}</span>
             </a>

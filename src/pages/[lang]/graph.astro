@@ -1,5 +1,6 @@
 ---
 import Layout from '@/layouts/Layout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import { SUPPORTED_LOCALES, type Locale, getLocalizedPath } from '@/utils/slugs';
 
 interface Props {
@@ -21,6 +22,7 @@ export function getStaticPaths() {
   lang={lang}
 >
   <div class="max-w-7xl mx-auto">
+    <Breadcrumbs title="Граф знаний" lang={lang} />
     <header class="mb-8">
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-4xl font-bold">Граф знаний</h1>
@@ -91,6 +93,7 @@ export function getStaticPaths() {
             class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
             style="min-width: 150px; max-height: 120px;"
           >
+            <option value="">Все теги</option>
             <!-- Динамически заполняется из graph.nodes -->
           </select>
           <span class="text-xs text-gray-500 dark:text-gray-400">(Ctrl+Click)</span>
@@ -374,6 +377,12 @@ export function getStaticPaths() {
   const lang = document.documentElement.lang || 'ru';
   
   async function init() {
+    // Защита от повторного вызова
+    if (initInProgress) {
+      return;
+    }
+    initInProgress = true;
+    
     try {
       // Загрузить библиотеки перед использованием
       await loadGraphLibraries();
@@ -389,21 +398,31 @@ export function getStaticPaths() {
         return;
       }
       
-      // Заполнить select с тегами
+      // Заполнить select с тегами (убираем дубликаты через Set)
       const allTags = [...new Set(allData.nodes.flatMap((n) => n.tags || []))].sort();
       const tagsSelect = document.getElementById('filter-tags') as HTMLSelectElement;
       
-      // Очистить существующие опции (кроме "Все теги")
-      while (tagsSelect.options.length > 1) {
-        tagsSelect.remove(1);
+      if (tagsSelect) {
+        // Очистить существующие опции (кроме "Все теги" - первая опция с index 0)
+        while (tagsSelect.options.length > 1) {
+          tagsSelect.remove(1);
+        }
+        
+        // Добавляем теги, проверяя на дубликаты по value
+        const existingValues = new Set<string>();
+        allTags.forEach(tag => {
+          if (!tag) return;
+          
+          // Проверяем, что тег ещё не добавлен
+          if (!existingValues.has(tag)) {
+            existingValues.add(tag);
+            const option = document.createElement('option');
+            option.value = tag;
+            option.textContent = tag;
+            tagsSelect.appendChild(option);
+          }
+        });
       }
-      
-      allTags.forEach(tag => {
-        const option = document.createElement('option');
-        option.value = tag;
-        option.textContent = tag;
-        tagsSelect.appendChild(option);
-      });
       
       renderGraph(allData);
     } catch (error) {
@@ -411,12 +430,17 @@ export function getStaticPaths() {
         console.error('Error loading graph data:', error);
       }
       showEmptyState();
+    } finally {
+      initInProgress = false;
     }
   }
   
   function showEmptyState() {
     const graphContainer = document.getElementById('graph-container');
     if (graphContainer) {
+      // ⚠️ БЕЗОПАСНОСТЬ: innerHTML используется только со статическими строками (без пользовательского ввода)
+      // escapeHtml() не требуется, так как контент полностью статичен и контролируется разработчиком
+      // Если в будущем потребуется динамический контент, обязательно использовать escapeHtml()
       graphContainer.innerHTML = `
         <div class="flex flex-col items-center justify-center h-96 text-center p-8">
           <svg class="w-24 h-24 text-gray-400 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -440,10 +464,16 @@ export function getStaticPaths() {
     const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
     const linkTypeSelect = document.getElementById('filter-link-type') as HTMLSelectElement;
     
-    // Получаем множественные значения
-    const selectedTypes = Array.from(typeSelect.selectedOptions).map(opt => opt.value);
-    const selectedTags = Array.from(tagSelect.selectedOptions).map(opt => opt.value);
-    const selectedLinkTypes = Array.from(linkTypeSelect.selectedOptions).map(opt => opt.value);
+    // Получаем множественные значения, исключая пустые строки
+    const selectedTypes = Array.from(typeSelect.selectedOptions)
+      .map(opt => opt.value)
+      .filter(v => v !== '');
+    const selectedTags = Array.from(tagSelect.selectedOptions)
+      .map(opt => opt.value)
+      .filter(v => v !== '');
+    const selectedLinkTypes = Array.from(linkTypeSelect.selectedOptions)
+      .map(opt => opt.value)
+      .filter(v => v !== '');
     
     // Фильтрация узлов
     const filteredNodes = allData.nodes.filter((n) => {
@@ -466,7 +496,7 @@ export function getStaticPaths() {
       );
     }
     
-    renderGraphWithControls({ nodes: filteredNodes, edges: filteredEdges });
+    renderGraph({ nodes: filteredNodes, edges: filteredEdges });
   }
   
   function renderGraph(data: GraphData) {
@@ -682,6 +712,8 @@ export function getStaticPaths() {
     setTimeout(() => {
       if (graph) {
         graph.zoomToFit(400);
+        // Настроить zoom контролы после создания графа
+        setupZoomControls();
       }
     }, 100);
   }
@@ -967,6 +999,9 @@ export function getStaticPaths() {
     let privacyMode = false;
     let transparentBg = false;
     
+    // ⚠️ БЕЗОПАСНОСТЬ: innerHTML используется только со статическими строками (без пользовательского ввода)
+    // escapeHtml() не требуется, так как контент полностью статичен и контролируется разработчиком
+    // Если в будущем потребуется динамический контент, обязательно использовать escapeHtml()
     modalContent.innerHTML = `
       <div class="mb-4">
         <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Настройки экспорта</h2>
@@ -1232,8 +1267,16 @@ export function getStaticPaths() {
     }, 3000);
   }
   
-  // Zoom контролы
+  // Zoom контролы - обработчики добавляются один раз при инициализации
+  let zoomControlsInitialized = false;
+  
   function setupZoomControls() {
+    // Обработчики добавляются только один раз
+    if (zoomControlsInitialized) {
+      return;
+    }
+    zoomControlsInitialized = true;
+    
     const zoomInBtn = document.getElementById('zoom-in');
     const zoomOutBtn = document.getElementById('zoom-out');
     const zoomFitBtn = document.getElementById('zoom-fit');
@@ -1267,67 +1310,9 @@ export function getStaticPaths() {
     });
   }
   
-  // Настройка zoom контролов после первой загрузки графа
-  let zoomControlsSetup = false;
+  // Флаг для предотвращения повторного вызова init
+  let initInProgress = false;
   
-  // Обёртка для renderGraph с настройкой контролов
-  const renderGraphWithControls = function(data: GraphData) {
-    renderGraph(data);
-    // Настроить контролы после создания графа (с небольшой задержкой для гарантии)
-    setTimeout(() => {
-      if (!zoomControlsSetup && graph) {
-        setupZoomControls();
-        zoomControlsSetup = true;
-      }
-    }, 100);
-  };
-  
-  // Переопределяем функции для использования renderGraphWithControls
-  const originalInit = init;
-  init = async function() {
-    try {
-      // Загрузить библиотеки перед использованием
-      await loadGraphLibraries();
-      
-      const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
-      const res = await fetchWithTimeout(`/graph-data-${lang}.json`, {}, 10000);
-      
-      allData = await res.json() as GraphData;
-      
-      // Проверяем пустое состояние
-      if (!allData || allData.nodes.length === 0) {
-        showEmptyState();
-        return;
-      }
-      
-      if (import.meta.env.DEV) {
-        console.log('Loaded graph data:', { nodes: allData.nodes.length, edges: allData.edges.length });
-      }
-      
-      // Заполнить select с тегами
-      const allTags = [...new Set(allData.nodes.flatMap((n) => n.tags || []))].sort();
-      const tagsSelect = document.getElementById('filter-tags') as HTMLSelectElement;
-      
-      // Очистить существующие опции (кроме "Все теги")
-      while (tagsSelect && tagsSelect.options.length > 1) {
-        tagsSelect.remove(1);
-      }
-      
-      allTags.forEach(tag => {
-        const option = document.createElement('option');
-        option.value = tag;
-        option.textContent = tag;
-        tagsSelect?.appendChild(option);
-      });
-      
-      renderGraphWithControls(allData);
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error loading graph data:', error);
-      }
-      showEmptyState();
-    }
-  };
   
   
   // Инициализация
@@ -1418,8 +1403,8 @@ export function getStaticPaths() {
   
   // Обновление при View Transitions
   document.addEventListener('astro:page-load', () => {
-    zoomControlsSetup = false;
     highlightedNodeId = null;
+    zoomControlsInitialized = false; // Сбросить флаг для переинициализации контролов
     init();
   });
   
