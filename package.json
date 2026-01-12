@@ -13,7 +13,16 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --ext .ts,.tsx,.astro --max-warnings 0 || echo 'ESLint not installed, run: npm install -D eslint @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-plugin-astro'",
+    "format": "prettier --write \"src/**/*.{ts,tsx,astro,md,mdx}\" || echo 'Prettier not installed, run: npm install -D prettier'",
+    "ci": "npm run typecheck && npm run test && npm run build",
+    "audit": "npm audit --production"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
   },
   "dependencies": {
     "@astrojs/mdx": "^4.3.13",
@@ -25,6 +34,7 @@
     "astro-icon": "^1.1.1",
     "d3-force": "^3.0.0",
     "force-graph": "^1.43.0",
+    "html-to-image": "^1.11.13",
     "rehype-external-links": "^3.0.0",
     "remark-gfm": "^4.0.0",
     "satori": "^0.12.0",

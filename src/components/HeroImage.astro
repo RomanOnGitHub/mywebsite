@@ -1,0 +1,40 @@
+---
+/**
+ * Компонент для оптимизированного отображения hero изображений
+ * Использует getImage из astro:assets для автоматической оптимизации
+ * Заимствовано из лучших практик Astro
+ */
+import { Image, getImage } from 'astro:assets';
+import type { ImageMetadata } from 'astro';
+
+interface Props {
+  image: ImageMetadata;
+  alt: string;
+  title?: string;
+  width?: number;
+  height?: number;
+}
+
+const { image, alt, title, width = 1200, height = 630 } = Astro.props;
+
+// Оптимизируем изображение с помощью getImage
+// Это автоматически генерирует оптимизированные версии (WebP, AVIF)
+const optimizedImage = await getImage({
+  src: image,
+  width,
+  height,
+  format: 'webp', // Предпочитаем WebP для лучшей совместимости
+  quality: 85, // Баланс между качеством и размером
+});
+---
+
+<Image
+  src={optimizedImage}
+  alt={alt}
+  title={title}
+  width={width}
+  height={height}
+  loading="eager"
+  fetchpriority="high"
+  class="w-full h-auto rounded-lg object-cover"
+/>

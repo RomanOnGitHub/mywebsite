@@ -1,6 +1,7 @@
 ---
 import { ClientRouter } from 'astro:transitions';
 import '@/styles/global.css';
+import { SUPPORTED_LOCALES, getLocalizedPath, type Locale } from '@/utils/slugs';
 
 interface Props {
   title: string;
@@ -20,6 +21,17 @@ const canonicalURL = Astro.site
 const ogImage = image 
   ? (image.startsWith('http') ? image : new URL(image, Astro.site || Astro.url.origin).href)
   : new URL('/og/default.png', Astro.site || Astro.url.origin).href;
+
+// Генерируем hreflang и alternate links для всех языков
+// Заимствовано из ScrewFast-main/src/components/Meta.astro
+const currentPath = Astro.url.pathname;
+const cleanPath = currentPath.replace(/^\/(ru|en|de|tr|zh-cn|es|fr|pt|it|ar)\//, '/');
+const alternateLinks = SUPPORTED_LOCALES.map((locale: Locale) => {
+  const href = Astro.site 
+    ? new URL(getLocalizedPath(cleanPath.replace(/^\//, ''), locale), Astro.site).href
+    : getLocalizedPath(cleanPath.replace(/^\//, ''), locale);
+  return `<link rel="alternate" hreflang="${locale}" href="${href}" />`;
+}).join('\n');
 ---
 
 <ClientRouter />
@@ -36,12 +48,24 @@ const ogImage = image
 <!-- Canonical URL -->
 <link rel="canonical" href={canonicalURL.href} />
 
+<!-- Alternate Language Links (hreflang) -->
+<Fragment set:html={alternateLinks} />
+
+<!-- Sitemap -->
+<link rel="sitemap" href="/sitemap-index.xml" />
+
+<!-- RSS Feed -->
+<link rel="alternate" type="application/rss+xml" title={`RSS Feed (${lang})`} href={new URL(`rss-${lang}.xml`, Astro.site || Astro.url.origin).href} />
+
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website" />
 <meta property="og:url" content={canonicalURL.href} />
 <meta property="og:title" content={title} />
 <meta property="og:description" content={description} />
 <meta property="og:image" content={ogImage} />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:image:type" content="image/png" />
 <meta property="og:locale" content={lang} />
 
 <!-- Twitter -->

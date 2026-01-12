@@ -1,6 +1,6 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import { SUPPORTED_LOCALES, type Locale } from '@/utils/slugs';
+import { SUPPORTED_LOCALES, type Locale, getLocalizedPath } from '@/utils/slugs';
 
 export function getStaticPaths() {
   return SUPPORTED_LOCALES.map(lang => ({ 
@@ -18,49 +18,81 @@ const { lang } = Astro.params as { lang: Locale };
 >
   <div class="max-w-7xl mx-auto">
     <header class="mb-8">
-      <h1 class="text-4xl font-bold mb-4">Граф знаний</h1>
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-4xl font-bold">Граф знаний</h1>
+        <a 
+          href={getLocalizedPath('', lang)}
+          class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline transition-colors"
+          data-astro-prefetch
+        >
+          ← На главную
+        </a>
+      </div>
       <p class="text-lg text-gray-600 dark:text-gray-400">
         Исследуйте связи между материалами сайта
       </p>
     </header>
     
-    <!-- Фильтры -->
-    <div class="mb-6 flex flex-wrap gap-4 items-center">
+    <!-- Поиск и фильтры -->
+    <div class="mb-6 space-y-4">
+      <!-- Поиск узлов -->
       <div class="flex items-center gap-2">
-        <label for="filter-type" class="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Тип:
+        <label for="search-nodes" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+          🔍 Поиск:
         </label>
-        <select 
-          id="filter-type"
-          class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+        <input
+          type="text"
+          id="search-nodes"
+          placeholder="Введите название узла..."
+          class="flex-1 max-w-md border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        />
+        <button
+          id="clear-search"
+          class="px-3 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors text-sm"
+          style="display: none;"
         >
-          <option value="">Все типы</option>
-          <option value="blog">Блог</option>
-          <option value="cases">Кейсы</option>
-          <option value="services">Услуги</option>
-          <option value="industries">Отрасли</option>
-        </select>
+          ✕ Очистить
+        </button>
       </div>
       
-      <div class="flex items-center gap-2">
-        <label for="filter-tags" class="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Тег:
-        </label>
-        <select 
-          id="filter-tags"
-          class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+      <!-- Фильтры -->
+      <div class="flex flex-wrap gap-4 items-center">
+        <div class="flex items-center gap-2">
+          <label for="filter-type" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Тип:
+          </label>
+          <select 
+            id="filter-type"
+            class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Все типы</option>
+            <option value="blog">Блог</option>
+            <option value="cases">Кейсы</option>
+            <option value="services">Услуги</option>
+            <option value="industries">Отрасли</option>
+          </select>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <label for="filter-tags" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Тег:
+          </label>
+          <select 
+            id="filter-tags"
+            class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Все теги</option>
+            <!-- Динамически заполняется из graph.nodes -->
+          </select>
+        </div>
+        
+        <button
+          id="reset-filters"
+          class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors text-sm"
         >
-          <option value="">Все теги</option>
-          <!-- Динамически заполняется из graph.nodes -->
-        </select>
+          Сбросить фильтры
+        </button>
       </div>
-      
-      <button
-        id="reset-filters"
-        class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors text-sm"
-      >
-        Сбросить фильтры
-      </button>
     </div>
     
     <!-- Контейнер для графа -->
@@ -69,6 +101,74 @@ const { lang } = Astro.params as { lang: Locale };
       class="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 overflow-hidden relative"
       style="width: 100%; height: 600px;"
     ></div>
+    
+    <!-- Контролы для графа -->
+    <div class="mt-4 flex flex-wrap gap-2 items-center justify-center text-sm">
+      <button
+        id="zoom-in"
+        class="px-3 py-1.5 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white rounded-md transition-colors"
+        title="Увеличить"
+      >
+        🔍+
+      </button>
+      <button
+        id="zoom-out"
+        class="px-3 py-1.5 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white rounded-md transition-colors"
+        title="Уменьшить"
+      >
+        🔍-
+      </button>
+      <button
+        id="zoom-fit"
+        class="px-3 py-1.5 bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white rounded-md transition-colors"
+        title="Подогнать под размер"
+      >
+        ⛶ Подогнать
+      </button>
+      <button
+        id="zoom-reset"
+        class="px-3 py-1.5 bg-gray-600 dark:bg-gray-500 hover:bg-gray-700 dark:hover:bg-gray-600 text-white rounded-md transition-colors"
+        title="Сбросить zoom"
+      >
+        ↺ Сбросить
+      </button>
+      <button
+        id="export-image"
+        class="px-3 py-1.5 bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600 text-white rounded-md transition-colors"
+        title="Экспортировать граф в изображение"
+      >
+        📥 Экспорт
+      </button>
+      <div class="text-gray-600 dark:text-gray-400 ml-4">
+        <span class="text-xs">Используйте колесо мыши для zoom, перетаскивание для перемещения</span>
+      </div>
+    </div>
+    
+    <!-- Контекстное меню (скрытое) -->
+    <div
+      id="context-menu"
+      class="hidden fixed bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg py-1 z-50"
+      style="min-width: 150px;"
+    >
+      <button
+        id="context-copy-node"
+        class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm"
+      >
+        📋 Копировать данные узла
+      </button>
+      <button
+        id="context-open-new"
+        class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm"
+      >
+        🔗 Открыть в новой вкладке
+      </button>
+      <button
+        id="context-highlight-connections"
+        class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm"
+      >
+        ✨ Выделить связи
+      </button>
+    </div>
     
     <!-- Легенда -->
     <div class="mt-6 flex flex-wrap gap-4 text-sm">
@@ -93,8 +193,6 @@ const { lang } = Astro.params as { lang: Locale };
 </Layout>
 
 <script>
-  import ForceGraph from 'force-graph';
-  import { forceCenter, forceManyBody, forceLink } from 'd3-force';
   import type { GraphNode, GraphEdge, GraphData } from '@/types/graph';
   
   // Проверка доступности DOM API
@@ -102,12 +200,37 @@ const { lang } = Astro.params as { lang: Locale };
     throw new Error('This script must run in browser environment');
   }
   
-  let graph: ReturnType<typeof ForceGraph> | null = null;
+  // Динамические импорты для клиентских библиотек
+  let ForceGraph: any = null;
+  let forceCenter: any = null;
+  let forceManyBody: any = null;
+  let forceLink: any = null;
+  
+  // Загрузить библиотеки асинхронно
+  async function loadGraphLibraries() {
+    if (!ForceGraph) {
+      const forceGraphModule = await import('force-graph');
+      ForceGraph = forceGraphModule.default;
+    }
+    if (!forceCenter) {
+      const d3ForceModule = await import('d3-force');
+      forceCenter = d3ForceModule.forceCenter;
+      forceManyBody = d3ForceModule.forceManyBody;
+      forceLink = d3ForceModule.forceLink;
+    }
+  }
+  
+  let graph: any = null;
   let allData: GraphData | null = null;
+  let highlightedNodeId: string | null = null;
+  let contextMenuNode: GraphNode | null = null;
   const lang = document.documentElement.lang || 'ru';
   
   async function init() {
     try {
+      // Загрузить библиотеки перед использованием
+      await loadGraphLibraries();
+      
       const res = await fetch(`/graph-data-${lang}.json`);
       if (!res.ok) {
         console.error('Failed to load graph data');
@@ -180,13 +303,23 @@ const { lang } = Astro.params as { lang: Locale };
     const centerX = Math.floor(width / 2);
     const centerY = Math.floor(height / 2);
     
-    // Отладочная информация (можно убрать после проверки)
+    // Отладочная информация
     console.log('Graph container:', { width, height, centerX, centerY });
+    console.log('Graph data:', { nodes: data.nodes.length, edges: data.edges.length });
+    
+    // Проверка на пустые данные
+    if (data.nodes.length === 0) {
+      console.warn('No nodes to display');
+      return;
+    }
     
     // Преобразовать edges в links для force-graph
+    // force-graph ожидает, что source и target будут строками (ID) или объектами узлов
+    // Используем строки (ID) для простоты - force-graph сам найдёт узлы
     const links = data.edges.map((e) => ({
-      source: e.from,
-      target: e.to,
+      source: e.from, // ID узла-источника
+      target: e.to,   // ID узла-цели
+      sourceType: e.source, // 'explicit' | 'outbound' - для стилизации
     }));
     
     // Вычисляем размеры узлов для учёта в границах
@@ -255,8 +388,28 @@ const { lang } = Astro.params as { lang: Locale };
     });
     
     // Создать граф
+    // force-graph может работать со строками в links, но лучше использовать объекты узлов
+    // Преобразуем links так, чтобы source и target были объектами узлов
+    const linksWithNodes = links.map(link => {
+      const sourceNode = data.nodes.find(n => n.id === link.source);
+      const targetNode = data.nodes.find(n => n.id === link.target);
+      
+      if (!sourceNode || !targetNode) {
+        console.warn('Link references missing node:', { source: link.source, target: link.target });
+        return null;
+      }
+      
+      return {
+        source: sourceNode,
+        target: targetNode,
+        sourceType: link.sourceType,
+      };
+    }).filter((link): link is NonNullable<typeof link> => link !== null);
+    
+    console.log('Links with nodes:', linksWithNodes.length, 'out of', links.length);
+    
     graph = ForceGraph()(container)
-      .graphData({ nodes: data.nodes, links })
+      .graphData({ nodes: data.nodes, links: linksWithNodes })
       .width(width)
       .height(height)
       .nodeLabel((n: GraphNode) => n.title)
@@ -270,25 +423,70 @@ const { lang } = Astro.params as { lang: Locale };
         return colors[n.type] || '#6b7280';
       })
       .nodeVal((n: GraphNode) => nodeSizes.get(n.id) || 10)
-      .linkWidth(1)
+      .linkWidth((link: any) => {
+        // Ярче для explicit связей, тоньше для outbound
+        return link.sourceType === 'explicit' ? 2 : 1.5;
+      })
+      .linkColor((link: any) => {
+        // Яркие цвета для рёбер, хорошо видимые на тёмном фоне
+        // Используем rgba для прозрачности (0.8 = 80% непрозрачности)
+        if (link.sourceType === 'explicit') {
+          // Яркий синий для explicit связей с прозрачностью
+          return 'rgba(96, 165, 250, 0.8)'; // blue-400 с opacity 0.8
+        } else {
+          // Яркий серо-синий для outbound связей с прозрачностью
+          return 'rgba(148, 163, 184, 0.8)'; // slate-400 с opacity 0.8
+        }
+      })
       .linkDirectionalArrowLength(6)
       .linkDirectionalArrowRelPos(1)
       .d3Force('center', forceCenter(width / 2, height / 2))
       .d3Force('charge', forceManyBody().strength(-300))
-      .d3Force('link', forceLink(links).id((d: { id: string }) => d.id).distance(100))
+      .d3Force('link', forceLink(linksWithNodes as any).id((d: any) => {
+        // d - это объект узла, извлекаем id
+        if (d && typeof d === 'object' && 'id' in d) return d.id;
+        return String(d);
+      }).distance(100))
       .d3Force('boundingBox', boundingBoxForce())
+      // Zoom и pan контролы (force-graph поддерживает встроенные)
+      .enableZoomInteraction(true)
+      .enablePanInteraction(true)
+      .cooldownTicks(100) // Продолжительность анимации после взаимодействия
       .onNodeClick((node: GraphNode) => {
-        if (typeof window !== 'undefined') {
-          window.location.href = `/${lang}/${node.id}/`;
+        if (typeof window !== 'undefined' && node) {
+          const url = `/${lang}/${node.id}/`;
+          window.location.href = url;
         }
       })
       .onNodeHover((node: GraphNode | null) => {
+        // Подсветка связанных узлов при наведении
         if (node) {
           container.style.cursor = 'pointer';
+          highlightConnections(node.id);
         } else {
           container.style.cursor = 'default';
+          clearHighlight();
+        }
+      })
+      .onNodeRightClick((node: GraphNode, event: MouseEvent) => {
+        // Контекстное меню при правом клике
+        event.preventDefault();
+        contextMenuNode = node;
+        showContextMenu(event.clientX, event.clientY);
+      })
+      .onLinkHover((link: any) => {
+        // Подсветка рёбер при наведении
+        if (link) {
+          container.style.cursor = 'pointer';
         }
       });
+    
+    // Автоматический zoom после создания графа
+    setTimeout(() => {
+      if (graph) {
+        graph.zoomToFit(400);
+      }
+    }, 100);
   }
   
   function resetFilters() {
@@ -303,13 +501,462 @@ const { lang } = Astro.params as { lang: Locale };
     }
   }
   
+  // Поиск узлов
+  function searchNodes(searchText: string) {
+    if (!allData || !graph) return;
+    
+    const query = searchText.toLowerCase().trim();
+    if (!query) {
+      clearSearch();
+      return;
+    }
+    
+    // Найти узлы, содержащие поисковый запрос
+    const matchingNodes = allData.nodes.filter(node => 
+      node.title.toLowerCase().includes(query) ||
+      node.id.toLowerCase().includes(query) ||
+      (node.tags && node.tags.some(tag => tag.toLowerCase().includes(query)))
+    );
+    
+    if (matchingNodes.length > 0) {
+      // Центрировать на первом найденном узле
+      const firstNode = matchingNodes[0];
+      const graphData = graph.graphData();
+      const nodeObj = graphData.nodes.find((n: any) => n.id === firstNode.id);
+      
+      if (nodeObj && nodeObj.x !== undefined && nodeObj.y !== undefined) {
+        graph.centerAt(nodeObj.x, nodeObj.y, 1000);
+        graph.zoomToFit(400, 20);
+        
+        // Подсветить найденные узлы
+        highlightSearchResults(matchingNodes.map(n => n.id));
+      }
+    } else {
+      clearSearch();
+      showNotification('Узлы не найдены', 'warning');
+    }
+  }
+  
+  function highlightSearchResults(nodeIds: string[]) {
+    if (!graph) return;
+    
+    // Увеличить размер найденных узлов через nodeVal
+    const originalNodeVal = graph.nodeVal();
+    graph.nodeVal((node: any) => {
+      const baseSize = typeof originalNodeVal === 'function' ? originalNodeVal(node) : 10;
+      return nodeIds.includes(node.id) ? baseSize * 1.5 : baseSize;
+    });
+    
+    // Изменить цвет найденных узлов
+    const originalNodeColor = graph.nodeColor();
+    graph.nodeColor((node: any) => {
+      if (nodeIds.includes(node.id)) {
+        return '#fbbf24'; // Жёлтый для найденных узлов
+      }
+      // Использовать оригинальную функцию цвета
+      if (typeof originalNodeColor === 'function') {
+        return originalNodeColor(node);
+      }
+      // Вернуть обычные цвета
+      return getDefaultNodeColor(node);
+    });
+  }
+  
+  function clearSearch() {
+    if (!graph || !allData) return;
+    
+    // Восстановить обычные размеры узлов
+    const nodeSizes = new Map<string, number>();
+    allData.nodes.forEach((node) => {
+      const connections = allData.edges.filter((e) => 
+        e.from === node.id || e.to === node.id
+      ).length;
+      const size = Math.max(5, Math.min(20, connections * 2));
+      nodeSizes.set(node.id, size);
+    });
+    
+    graph.nodeVal((n: GraphNode) => nodeSizes.get(n.id) || 10);
+    
+    // Восстановить обычные цвета
+    graph.nodeColor((n: GraphNode) => getDefaultNodeColor(n));
+  }
+  
+  // Подсветка связанных узлов
+  function highlightConnections(nodeId: string) {
+    if (!graph || !allData || highlightedNodeId === nodeId) return;
+    
+    highlightedNodeId = nodeId;
+    const connectedNodeIds = new Set<string>([nodeId]);
+    
+    // Найти все связанные узлы
+    allData.edges.forEach(edge => {
+      if (edge.from === nodeId) connectedNodeIds.add(edge.to);
+      if (edge.to === nodeId) connectedNodeIds.add(edge.from);
+    });
+    
+    // Сохранить оригинальные цвета
+    const originalNodeColor = graph.nodeColor();
+    const originalLinkColor = graph.linkColor();
+    
+    // Изменить цвет несвязанных узлов (затемнить)
+    graph.nodeColor((node: any) => {
+      const baseColor = typeof originalNodeColor === 'function' ? originalNodeColor(node) : getDefaultNodeColor(node);
+      if (connectedNodeIds.has(node.id)) {
+        return baseColor; // Оставить ярким
+      }
+      // Затемнить несвязанные узлы (добавить прозрачность через rgba)
+      return addOpacityToColor(baseColor, 0.3);
+    });
+    
+    // Изменить цвет рёбер
+    graph.linkColor((link: any) => {
+      const sourceId = typeof link.source === 'string' ? link.source : link.source?.id;
+      const targetId = typeof link.target === 'string' ? link.target : link.target?.id;
+      const isConnected = sourceId === nodeId || targetId === nodeId;
+      
+      if (isConnected) {
+        const baseColor = typeof originalLinkColor === 'function' ? originalLinkColor(link) : 'rgba(96, 165, 250, 0.8)';
+        return baseColor.replace('0.8', '1'); // Убрать прозрачность для связанных
+      }
+      // Затемнить несвязанные рёбра
+      return 'rgba(148, 163, 184, 0.2)';
+    });
+  }
+  
+  function clearHighlight() {
+    if (!graph || highlightedNodeId === null) return;
+    
+    highlightedNodeId = null;
+    
+    // Восстановить обычные цвета узлов
+    graph.nodeColor((n: GraphNode) => getDefaultNodeColor(n));
+    
+    // Восстановить обычные цвета рёбер
+    graph.linkColor((link: any) => {
+      if (link.sourceType === 'explicit') {
+        return 'rgba(96, 165, 250, 0.8)';
+      } else {
+        return 'rgba(148, 163, 184, 0.8)';
+      }
+    });
+  }
+  
+  // Вспомогательная функция для получения цвета узла по умолчанию
+  function getDefaultNodeColor(node: GraphNode): string {
+    const colors: Record<GraphNode['type'], string> = {
+      blog: '#3b82f6',
+      cases: '#10b981',
+      services: '#f59e0b',
+      industries: '#8b5cf6',
+    };
+    return colors[node.type] || '#6b7280';
+  }
+  
+  // Вспомогательная функция для добавления прозрачности к цвету
+  function addOpacityToColor(color: string, opacity: number): string {
+    // Если цвет уже в формате rgba, заменить opacity
+    if (color.startsWith('rgba(')) {
+      return color.replace(/[\d.]+\)$/, `${opacity})`);
+    }
+    // Если цвет в формате hex, преобразовать в rgba
+    if (color.startsWith('#')) {
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+    }
+    // Если цвет в формате rgb, добавить alpha
+    if (color.startsWith('rgb(')) {
+      return color.replace('rgb(', 'rgba(').replace(')', `, ${opacity})`);
+    }
+    // Fallback: вернуть цвет как есть
+    return color;
+  }
+  
+  // Контекстное меню
+  function showContextMenu(x: number, y: number) {
+    const menu = document.getElementById('context-menu');
+    if (!menu || !contextMenuNode) return;
+    
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.classList.remove('hidden');
+  }
+  
+  function hideContextMenu() {
+    const menu = document.getElementById('context-menu');
+    if (menu) {
+      menu.classList.add('hidden');
+    }
+  }
+  
+  // Экспорт графа в изображение
+  async function exportGraphAsImage() {
+    if (!graph || !container) return;
+    
+    try {
+      // Динамический импорт html-to-image
+      const { toPng } = await import('html-to-image');
+      
+      // Сбросить zoom для полного отображения
+      graph.zoomToFit(400);
+      
+      // Подождать завершения анимации
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Для WebGL canvas нужно использовать специальные опции
+      const dataUrl = await toPng(container, {
+        backgroundColor: window.matchMedia('(prefers-color-scheme: dark)').matches ? '#1f2937' : '#ffffff',
+        quality: 1.0,
+        pixelRatio: 2,
+        cacheBust: true,
+        filter: (node: Node) => {
+          // Исключить контекстное меню и другие UI элементы
+          return !(node as Element).id?.includes('context-menu');
+        },
+      });
+      
+      // Скачать изображение
+      const link = document.createElement('a');
+      link.download = `graph-knowledge-${lang}-${new Date().toISOString().split('T')[0]}.png`;
+      link.href = dataUrl;
+      link.click();
+      
+      showNotification('Граф экспортирован!', 'success');
+    } catch (error) {
+      console.error('Export error:', error);
+      showNotification('Ошибка экспорта. Проверьте консоль для деталей.', 'error');
+    }
+  }
+  
+  // Уведомления
+  function showNotification(message: string, type: 'success' | 'warning' | 'error' = 'success') {
+    const notification = document.createElement('div');
+    notification.className = `fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg z-50 ${
+      type === 'success' ? 'bg-green-500 text-white' :
+      type === 'warning' ? 'bg-yellow-500 text-black' :
+      'bg-red-500 text-white'
+    }`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
+  }
+  
+  // Zoom контролы
+  function setupZoomControls() {
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const zoomFitBtn = document.getElementById('zoom-fit');
+    const zoomResetBtn = document.getElementById('zoom-reset');
+    
+    zoomInBtn?.addEventListener('click', () => {
+      if (graph) {
+        const currentZoom = graph.zoom() || 1;
+        graph.zoom(currentZoom * 1.2);
+      }
+    });
+    
+    zoomOutBtn?.addEventListener('click', () => {
+      if (graph) {
+        const currentZoom = graph.zoom() || 1;
+        graph.zoom(currentZoom / 1.2);
+      }
+    });
+    
+    zoomFitBtn?.addEventListener('click', () => {
+      if (graph) {
+        graph.zoomToFit(400);
+      }
+    });
+    
+    zoomResetBtn?.addEventListener('click', () => {
+      if (graph) {
+        graph.zoom(1);
+        graph.centerAt(0, 0);
+      }
+    });
+  }
+  
+  // Настройка zoom контролов после первой загрузки графа
+  let zoomControlsSetup = false;
+  
+  // Обёртка для renderGraph с настройкой контролов
+  const renderGraphWithControls = function(data: GraphData) {
+    renderGraph(data);
+    // Настроить контролы после создания графа (с небольшой задержкой для гарантии)
+    setTimeout(() => {
+      if (!zoomControlsSetup && graph) {
+        setupZoomControls();
+        zoomControlsSetup = true;
+      }
+    }, 100);
+  };
+  
+  // Переопределяем функции для использования renderGraphWithControls
+  const originalInit = init;
+  init = async function() {
+    try {
+      // Загрузить библиотеки перед использованием
+      await loadGraphLibraries();
+      
+      const res = await fetch(`/graph-data-${lang}.json`);
+      if (!res.ok) {
+        console.error('Failed to load graph data');
+        return;
+      }
+      
+      allData = await res.json() as GraphData;
+      console.log('Loaded graph data:', { nodes: allData.nodes.length, edges: allData.edges.length });
+      
+      // Заполнить select с тегами
+      const allTags = [...new Set(allData.nodes.flatMap((n) => n.tags || []))].sort();
+      const tagsSelect = document.getElementById('filter-tags') as HTMLSelectElement;
+      
+      // Очистить существующие опции (кроме "Все теги")
+      while (tagsSelect && tagsSelect.options.length > 1) {
+        tagsSelect.remove(1);
+      }
+      
+      allTags.forEach(tag => {
+        const option = document.createElement('option');
+        option.value = tag;
+        option.textContent = tag;
+        tagsSelect?.appendChild(option);
+      });
+      
+      renderGraphWithControls(allData);
+    } catch (error) {
+      console.error('Error loading graph data:', error);
+    }
+  };
+  
+  const originalApplyFilters = applyFilters;
+  applyFilters = function() {
+    if (!allData) return;
+    
+    const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
+    const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
+    
+    const type = typeSelect.value;
+    const tag = tagSelect.value;
+    
+    const filteredNodes = allData.nodes.filter((n) => 
+      (!type || n.type === type) &&
+      (!tag || (n.tags && n.tags.includes(tag)))
+    );
+    
+    const nodeIds = new Set(filteredNodes.map((n) => n.id));
+    const filteredEdges = allData.edges.filter((e) => 
+      nodeIds.has(e.from) && nodeIds.has(e.to)
+    );
+    
+    renderGraphWithControls({ nodes: filteredNodes, edges: filteredEdges });
+  };
+  
+  const originalResetFilters = resetFilters;
+  resetFilters = function() {
+    const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
+    const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
+    
+    typeSelect.value = '';
+    tagSelect.value = '';
+    
+    if (allData) {
+      renderGraphWithControls(allData);
+    }
+  };
+  
   // Инициализация
   document.getElementById('filter-type')?.addEventListener('change', applyFilters);
   document.getElementById('filter-tags')?.addEventListener('change', applyFilters);
   document.getElementById('reset-filters')?.addEventListener('click', resetFilters);
   
+  // Поиск узлов
+  const searchInput = document.getElementById('search-nodes') as HTMLInputElement;
+  const clearSearchBtn = document.getElementById('clear-search') as HTMLButtonElement;
+  
+  let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+  searchInput?.addEventListener('input', (e) => {
+    const target = e.target as HTMLInputElement;
+    const value = target.value;
+    
+    if (value.trim()) {
+      clearSearchBtn.style.display = 'block';
+    } else {
+      clearSearchBtn.style.display = 'none';
+      clearSearch();
+    }
+    
+    // Debounce поиска
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      if (value.trim()) {
+        searchNodes(value);
+      }
+    }, 300);
+  });
+  
+  clearSearchBtn?.addEventListener('click', () => {
+    searchInput.value = '';
+    clearSearchBtn.style.display = 'none';
+    clearSearch();
+  });
+  
+  // Экспорт изображения
+  document.getElementById('export-image')?.addEventListener('click', exportGraphAsImage);
+  
+  // Контекстное меню
+  document.getElementById('context-copy-node')?.addEventListener('click', async () => {
+    if (contextMenuNode) {
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(contextMenuNode, null, 2));
+        showNotification('Данные узла скопированы!', 'success');
+      } catch (error) {
+        showNotification('Ошибка копирования', 'error');
+      }
+    }
+    hideContextMenu();
+  });
+  
+  document.getElementById('context-open-new')?.addEventListener('click', () => {
+    if (contextMenuNode) {
+      window.open(`/${lang}/${contextMenuNode.id}/`, '_blank');
+    }
+    hideContextMenu();
+  });
+  
+  document.getElementById('context-highlight-connections')?.addEventListener('click', () => {
+    if (contextMenuNode) {
+      highlightConnections(contextMenuNode.id);
+    }
+    hideContextMenu();
+  });
+  
+  // Закрыть контекстное меню при клике вне его
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('context-menu');
+    if (menu && !menu.contains(e.target as Node)) {
+      hideContextMenu();
+    }
+  });
+  
+  // Закрыть контекстное меню при правом клике
+  document.addEventListener('contextmenu', (e) => {
+    const menu = document.getElementById('context-menu');
+    if (menu && !menu.contains(e.target as Node)) {
+      hideContextMenu();
+    }
+  });
+  
   // Обновление при View Transitions
-  document.addEventListener('astro:page-load', init);
+  document.addEventListener('astro:page-load', () => {
+    zoomControlsSetup = false;
+    highlightedNodeId = null;
+    init();
+  });
   
   // Первоначальная загрузка
   init();

@@ -1,6 +1,18 @@
 {
   "nodes": [
     {
+      "id": "blog/web-performance",
+      "title": "Оптимизация производительности веб-сайтов",
+      "type": "blog",
+      "lang": "ru",
+      "slug": "web-performance",
+      "tags": [
+        "Производительность",
+        "Веб-разработка",
+        "Оптимизация"
+      ]
+    },
+    {
       "id": "blog/test-post",
       "title": "Тестовый пост",
       "type": "blog",
@@ -12,11 +24,107 @@
       ]
     },
     {
+      "id": "blog/seo-optimization",
+      "title": "Оптимизация SEO для современных сайтов",
+      "type": "blog",
+      "lang": "ru",
+      "slug": "seo-optimization",
+      "tags": [
+        "SEO",
+        "Маркетинг",
+        "Веб-разработка"
+      ]
+    },
+    {
+      "id": "blog/mobile-first",
+      "title": "Mobile-First подход в веб-дизайне",
+      "type": "blog",
+      "lang": "ru",
+      "slug": "mobile-first",
+      "tags": [
+        "Мобильная разработка",
+        "Дизайн",
+        "UX"
+      ]
+    },
+    {
+      "id": "blog/content-marketing",
+      "title": "Стратегии контент-маркетинга в 2024 году",
+      "type": "blog",
+      "lang": "ru",
+      "slug": "content-marketing",
+      "tags": [
+        "Контент-маркетинг",
+        "Маркетинг",
+        "Блог"
+      ]
+    },
+    {
+      "id": "blog/accessibility",
+      "title": "Веб-доступность (A11y) - полное руководство",
+      "type": "blog",
+      "lang": "ru",
+      "slug": "accessibility",
+      "tags": [
+        "Доступность",
+        "UX",
+        "Веб-разработка"
+      ]
+    },
+    {
       "id": "cases/test-case",
       "title": "Тестовый кейс",
       "type": "cases",
       "lang": "ru",
       "slug": "test-case",
+      "tags": []
+    },
+    {
+      "id": "cases/speed-optimization",
+      "title": "Оптимизация скорости загрузки сайта",
+      "type": "cases",
+      "lang": "ru",
+      "slug": "speed-optimization",
+      "tags": []
+    },
+    {
+      "id": "cases/saas-content",
+      "title": "Контент-стратегия для SaaS-стартапа",
+      "type": "cases",
+      "lang": "ru",
+      "slug": "saas-content",
+      "tags": []
+    },
+    {
+      "id": "cases/mobile-app",
+      "title": "Разработка мобильного приложения",
+      "type": "cases",
+      "lang": "ru",
+      "slug": "mobile-app",
+      "tags": []
+    },
+    {
+      "id": "cases/gov-website",
+      "title": "Редизайн государственного сайта",
+      "type": "cases",
+      "lang": "ru",
+      "slug": "gov-website",
+      "tags": []
+    },
+    {
+      "id": "cases/ecommerce-seo",
+      "title": "SEO-оптимизация интернет-магазина",
+      "type": "cases",
+      "lang": "ru",
+      "slug": "ecommerce-seo",
+      "tags": []
+    },
+    {
+      "id": "services/web-development",
+      "title": "Веб-разработка",
+      "type": "services",
+      "lang": "ru",
+      "slug": "web-development",
       "tags": []
     },
     {
@@ -28,13 +136,386 @@
       "tags": []
     },
     {
+      "id": "services/seo-consulting",
+      "title": "SEO-консалтинг",
+      "type": "services",
+      "lang": "ru",
+      "slug": "seo-consulting",
+      "tags": []
+    },
+    {
+      "id": "services/mobile-development",
+      "title": "Мобильная разработка",
+      "type": "services",
+      "lang": "ru",
+      "slug": "mobile-development",
+      "tags": []
+    },
+    {
+      "id": "services/content-creation",
+      "title": "Создание контента",
+      "type": "services",
+      "lang": "ru",
+      "slug": "content-creation",
+      "tags": []
+    },
+    {
+      "id": "services/accessibility-audit",
+      "title": "Аудит доступности (A11y)",
+      "type": "services",
+      "lang": "ru",
+      "slug": "accessibility-audit",
+      "tags": []
+    },
+    {
       "id": "industries/test-industry",
       "title": "Тестовая отрасль",
       "type": "industries",
       "lang": "ru",
       "slug": "test-industry",
       "tags": []
+    },
+    {
+      "id": "industries/technology",
+      "title": "Технологии",
+      "type": "industries",
+      "lang": "ru",
+      "slug": "technology",
+      "tags": []
+    },
+    {
+      "id": "industries/healthcare",
+      "title": "Здравоохранение",
+      "type": "industries",
+      "lang": "ru",
+      "slug": "healthcare",
+      "tags": []
+    },
+    {
+      "id": "industries/government",
+      "title": "Государственный сектор",
+      "type": "industries",
+      "lang": "ru",
+      "slug": "government",
+      "tags": []
+    },
+    {
+      "id": "industries/ecommerce",
+      "title": "E-commerce",
+      "type": "industries",
+      "lang": "ru",
+      "slug": "ecommerce",
+      "tags": []
+    },
+    {
+      "id": "industries/education",
+      "title": "Образование",
+      "type": "industries",
+      "lang": "ru",
+      "slug": "education",
+      "tags": []
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "blog/web-performance",
+      "to": "cases/speed-optimization",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/web-performance",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/web-performance",
+      "to": "cases/speed-optimization",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/web-performance",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/seo-optimization",
+      "to": "cases/ecommerce-seo",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/seo-optimization",
+      "to": "services/seo-consulting",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/seo-optimization",
+      "to": "cases/ecommerce-seo",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/seo-optimization",
+      "to": "services/seo-consulting",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/mobile-first",
+      "to": "cases/mobile-app",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/mobile-first",
+      "to": "services/mobile-development",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/mobile-first",
+      "to": "cases/mobile-app",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/mobile-first",
+      "to": "services/mobile-development",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/content-marketing",
+      "to": "cases/saas-content",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/content-marketing",
+      "to": "services/content-creation",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/content-marketing",
+      "to": "cases/saas-content",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/content-marketing",
+      "to": "services/content-creation",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/accessibility",
+      "to": "cases/gov-website",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/accessibility",
+      "to": "services/accessibility-audit",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/accessibility",
+      "to": "cases/gov-website",
+      "source": "explicit"
+    },
+    {
+      "from": "blog/accessibility",
+      "to": "services/accessibility-audit",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/speed-optimization",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/speed-optimization",
+      "to": "industries/ecommerce",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/speed-optimization",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/speed-optimization",
+      "to": "industries/ecommerce",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/saas-content",
+      "to": "services/content-creation",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/saas-content",
+      "to": "industries/technology",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/saas-content",
+      "to": "services/content-creation",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/saas-content",
+      "to": "industries/technology",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/mobile-app",
+      "to": "services/mobile-development",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/mobile-app",
+      "to": "industries/technology",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/mobile-app",
+      "to": "services/mobile-development",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/mobile-app",
+      "to": "industries/technology",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/gov-website",
+      "to": "services/accessibility-audit",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/gov-website",
+      "to": "industries/government",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/gov-website",
+      "to": "services/accessibility-audit",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/gov-website",
+      "to": "industries/government",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/ecommerce-seo",
+      "to": "services/seo-consulting",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/ecommerce-seo",
+      "to": "industries/ecommerce",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/ecommerce-seo",
+      "to": "services/seo-consulting",
+      "source": "explicit"
+    },
+    {
+      "from": "cases/ecommerce-seo",
+      "to": "industries/ecommerce",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/technology",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/technology",
+      "to": "services/mobile-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/technology",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/technology",
+      "to": "services/mobile-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/healthcare",
+      "to": "services/mobile-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/healthcare",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/healthcare",
+      "to": "services/mobile-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/healthcare",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/government",
+      "to": "services/accessibility-audit",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/government",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/government",
+      "to": "services/accessibility-audit",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/government",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/ecommerce",
+      "to": "services/seo-consulting",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/ecommerce",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/ecommerce",
+      "to": "services/seo-consulting",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/ecommerce",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/education",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/education",
+      "to": "services/content-creation",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/education",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/education",
+      "to": "services/content-creation",
+      "source": "explicit"
+    }
+  ]
 }

@@ -3,6 +3,7 @@ import { getCollection, render, type RenderResult } from 'astro:content';
 import Layout from '@/layouts/Layout.astro';
 import Stub from '@/components/Stub.astro';
 import { parseLeafBundleId, SUPPORTED_LOCALES, DEFAULT_LOCALE, type Locale } from '@/utils/slugs';
+import { formatDate } from '@/utils/format';
 
 export async function getStaticPaths() {
   try {
@@ -79,11 +80,11 @@ const structuredData = hasTranslation ? {
       )}
       <div class="text-sm text-gray-500 dark:text-gray-500 mt-4">
         <time datetime={legalItem.data.pubDate.toISOString()}>
-          Опубликовано: {legalItem.data.pubDate.toLocaleDateString(lang)}
+          Опубликовано: {formatDate(legalItem.data.pubDate, lang)}
         </time>
         {legalItem.data.updatedDate && (
           <time datetime={legalItem.data.updatedDate.toISOString()} class="ml-4">
-            Обновлено: {legalItem.data.updatedDate.toLocaleDateString(lang)}
+            Обновлено: {formatDate(legalItem.data.updatedDate, lang)}
           </time>
         )}
       </div>

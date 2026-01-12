@@ -5,11 +5,15 @@ import partytown from '@astrojs/partytown';
 import tailwindcss from '@tailwindcss/vite';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
-import { remarkExtractLinks } from './src/plugins/remark-extract-links.js';
-import graphIntegration from './src/integrations/graph-integration.js';
+// Astro поддерживает импорт .ts файлов напрямую
+import { remarkExtractLinks } from './src/plugins/remark-extract-links.ts';
+import graphIntegration from './src/integrations/graph-integration.ts';
+
+// Используем env для site URL, fallback на example.com только для dev
+const siteUrl = process.env.SITE_URL || 'https://example.com';
 
 export default defineConfig({
-  site: 'https://example.com',
+  site: siteUrl,
   output: 'static',
   security: {
     checkOrigin: true,
@@ -34,7 +38,7 @@ export default defineConfig({
   markdown: {
     remarkPlugins: [remarkGfm, remarkExtractLinks],
     rehypePlugins: [
-      [rehypeExternalLinks, { target: '_blank', rel: ['noopener'] }]
+      [rehypeExternalLinks, { target: '_blank', rel: ['noopener', 'noreferrer'] }]
     ],
   },
   env: {
@@ -57,6 +61,12 @@ export default defineConfig({
         access: 'public',
         optional: true,
         default: '',
+      }),
+      PUBLIC_TWITTER_HANDLE: envField.string({
+        context: 'client',
+        access: 'public',
+        optional: true,
+        default: '@example',
       }),
     }
   }
