@@ -5,12 +5,12 @@ import partytown from '@astrojs/partytown';
 import tailwindcss from '@tailwindcss/vite';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
-// Astro поддерживает импорт .ts файлов напрямую
 import { remarkExtractLinks } from './src/plugins/remark-extract-links.ts';
 import graphIntegration from './src/integrations/graph-integration.ts';
 
-// Используем env для site URL, fallback на example.com только для dev
-const siteUrl = process.env.SITE_URL || 'https://example.com';
+// Используем import.meta.env для единого источника правды (не process.env)
+// В конфиге доступны только PUBLIC_* переменные через import.meta.env
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://example.com';
 
 export default defineConfig({
   site: siteUrl,
@@ -44,18 +44,24 @@ export default defineConfig({
   env: {
     validateSecrets: true,
     schema: {
-      SITE_URL: envField.string({ 
+      PUBLIC_SITE_URL: envField.string({ 
         context: 'client', 
         access: 'public',
         optional: true,
         default: 'https://example.com',
       }),
+      // ⚠️ БЕЗОПАСНОСТЬ: WEB3FORMS_KEY - серверный секрет, НИКОГДА не попадает в клиентский bundle
+      // Используется только на сервере (SSR) или в build-time для генерации статических страниц
+      // Для клиентских форм используйте PUBLIC_WEB3FORMS_KEY
       WEB3FORMS_KEY: envField.string({ 
         context: 'server', 
         access: 'secret',
         optional: true,
         default: '',
       }),
+      // ⚠️ БЕЗОПАСНОСТЬ: PUBLIC_WEB3FORMS_KEY - публичный ключ для клиентских форм
+      // Этот ключ попадает в клиентский bundle, поэтому используйте отдельный публичный ключ
+      // от Web3Forms (не тот же, что для серверных запросов)
       PUBLIC_WEB3FORMS_KEY: envField.string({ 
         context: 'client', 
         access: 'public',

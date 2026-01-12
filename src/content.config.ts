@@ -2,6 +2,21 @@ import { defineCollection, z, reference } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '@/utils/slugs';
 
+/**
+ * ⚠️ БЕЗОПАСНОСТЬ: Content Sanitization
+ * 
+ * Текущая конфигурация предполагает, что весь MDX контент из доверенных источников
+ * (content collections в src/content/). Astro автоматически экранирует HTML в Markdown.
+ * 
+ * Если в будущем планируется принимать контент от пользователей или из внешних источников:
+ * 1. Используйте DOMPurify или серверный санитизатор перед рендерингом
+ * 2. Отключите raw HTML в markdown (dangerouslySetHtml)
+ * 3. Добавьте валидацию через Zod схемы для всех полей
+ * 4. Рассмотрите использование rehype-sanitize плагина
+ * 
+ * См. также: https://docs.astro.build/en/guides/markdown-content/#security
+ */
+
 // Используем zh-cn (lowercase) для соответствия BCP 47 стандарту
 const LANG_PATTERN = '{ru,en,de,tr,zh-cn,es,fr,pt,it,ar}';
 

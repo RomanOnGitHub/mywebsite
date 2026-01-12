@@ -63,7 +63,12 @@ function resolveLeafBundlePath(filePath: string, linkUrl: string): string | null
   }
   
   const relativePath = normalizedResolved.slice(contentIndex + '/content/'.length);
-  return relativePath.replace(/\/$/, '');
+  // Убираем trailing slash, удаляем index.md/index.mdx и расширения
+  const cleaned = relativePath
+    .replace(/\/$/, '') // Убираем trailing slash
+    .replace(/\/index\.(md|mdx)$/, '') // Убираем /index.md или /index.mdx
+    .replace(/\.(md|mdx)$/, ''); // Убираем расширения .md/.mdx
+  return cleaned || null;
 }
 
 export function remarkExtractLinks() {
@@ -103,11 +108,24 @@ export function remarkExtractLinks() {
       }
       
       if (resolved) {
-        // Убираем trailing slash и расширение
-        resolved = resolved.replace(/\/$/, '').replace(/\.(md|mdx)$/, '');
+        // Убираем trailing slash, удаляем index.md/index.mdx и расширения
+        resolved = resolved
+          .replace(/\/$/, '') // Убираем trailing slash
+          .replace(/\/index\.(md|mdx)$/, '') // Убираем /index.md или /index.mdx
+          .replace(/\.(md|mdx)$/, ''); // Убираем расширения .md/.mdx
         if (resolved) {
           links.push(resolved);
         }
+      } else {
+        // Логируем предупреждение о неразрешённых ссылках для CI/CD
+        file.data.astro = file.data.astro || {};
+        file.data.astro.frontmatter = file.data.astro.frontmatter || {};
+        file.data.astro.frontmatter.linkWarnings = file.data.astro.frontmatter.linkWarnings || [];
+        file.data.astro.frontmatter.linkWarnings.push({
+          file: normalizedFilePath,
+          original: node.url,
+          reason: 'unresolved',
+        });
       }
     });
     

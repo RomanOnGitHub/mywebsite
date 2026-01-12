@@ -96,7 +96,8 @@ export default function graphIntegration(): AstroIntegration {
           }
           
           // Генерация JSON файлов
-          const publicDir = path.join(dir.pathname, '..', 'public');
+          // Используем process.cwd()/public для надёжности (не зависим от формата dir.pathname)
+          const publicDir = path.join(process.cwd(), 'public');
           await fs.mkdir(publicDir, { recursive: true });
           
           for (const lang of SUPPORTED_LOCALES) {
@@ -117,25 +118,36 @@ export default function graphIntegration(): AstroIntegration {
           }
           
           // Pagefind
-          logger.info('Running Pagefind...');
-          await new Promise<void>((resolve, reject) => {
-            const pagefind = spawn('npx', ['-y', 'pagefind', 
-              '--site', dir.pathname,
-              '--glob', '{ru,en,de,tr,zh-cn,es,fr,pt,it,ar}/**/*.html'
-            ], {
-              stdio: 'inherit', 
-              shell: true,
+          // Оборачиваем в try/catch для graceful degradation если pagefind недоступен
+          try {
+            logger.info('Running Pagefind...');
+            await new Promise<void>((resolve) => {
+              const pagefind = spawn('npx', ['-y', 'pagefind', 
+                '--site', dir.pathname,
+                '--glob', '{ru,en,de,tr,zh-cn,es,fr,pt,it,ar}/**/*.html'
+              ], {
+                stdio: 'inherit', 
+                shell: true,
+              });
+              
+              pagefind.on('close', (code) => {
+                if (code === 0) {
+                  resolve();
+                } else {
+                  logger.warn(`Pagefind exited with code ${code}, continuing...`);
+                  resolve(); // Не fail, только warning
+                }
+              });
+              
+              pagefind.on('error', (err) => {
+                logger.warn('Pagefind spawn error, skipping indexing step:', err);
+                resolve(); // Не fail, продолжаем сборку
+              });
             });
-            
-            pagefind.on('close', (code) => {
-              if (code === 0) {
-                resolve();
-              } else {
-                logger.warn(`Pagefind exited with code ${code}, continuing...`);
-                resolve(); // Не fail, только warning
-              }
-            });
-          });
+          } catch (err) {
+            logger.warn('Pagefind failed or not available, skipping indexing step.', err);
+            // Не выбрасываем ошибку - сборка продолжается без индексации
+          }
           
           logger.info('✓ Graph integration completed');
         } catch (error) {
