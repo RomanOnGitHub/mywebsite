@@ -2,13 +2,17 @@
 import Layout from '@/layouts/Layout.astro';
 import { SUPPORTED_LOCALES, type Locale, getLocalizedPath } from '@/utils/slugs';
 
+interface Props {
+  lang: Locale;
+}
+
 export function getStaticPaths() {
   return SUPPORTED_LOCALES.map(lang => ({ 
     params: { lang } 
   }));
 }
 
-const { lang } = Astro.params as { lang: Locale };
+const { lang } = Astro.params as Props;
 ---
 
 <Layout 
@@ -63,14 +67,17 @@ const { lang } = Astro.params as { lang: Locale };
           </label>
           <select 
             id="filter-type"
+            multiple
+            size="4"
             class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+            style="min-width: 150px; max-height: 120px;"
           >
-            <option value="">Все типы</option>
             <option value="blog">Блог</option>
             <option value="cases">Кейсы</option>
             <option value="services">Услуги</option>
             <option value="industries">Отрасли</option>
           </select>
+          <span class="text-xs text-gray-500 dark:text-gray-400">(Ctrl+Click)</span>
         </div>
         
         <div class="flex items-center gap-2">
@@ -79,10 +86,29 @@ const { lang } = Astro.params as { lang: Locale };
           </label>
           <select 
             id="filter-tags"
+            multiple
+            size="4"
             class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+            style="min-width: 150px; max-height: 120px;"
           >
-            <option value="">Все теги</option>
             <!-- Динамически заполняется из graph.nodes -->
+          </select>
+          <span class="text-xs text-gray-500 dark:text-gray-400">(Ctrl+Click)</span>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <label for="filter-link-type" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Тип связи:
+          </label>
+          <select 
+            id="filter-link-type"
+            multiple
+            size="2"
+            class="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500"
+            style="min-width: 150px;"
+          >
+            <option value="explicit">Явные связи</option>
+            <option value="outbound">Исходящие ссылки</option>
           </select>
         </div>
         
@@ -133,6 +159,22 @@ const { lang } = Astro.params as { lang: Locale };
         ↺ Сбросить
       </button>
       <button
+        id="nav-back"
+        class="px-3 py-1.5 bg-gray-600 dark:bg-gray-500 hover:bg-gray-700 dark:hover:bg-gray-600 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Назад"
+        disabled
+      >
+        ← Назад
+      </button>
+      <button
+        id="nav-forward"
+        class="px-3 py-1.5 bg-gray-600 dark:bg-gray-500 hover:bg-gray-700 dark:hover:bg-gray-600 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Вперёд"
+        disabled
+      >
+        Вперёд →
+      </button>
+      <button
         id="export-image"
         class="px-3 py-1.5 bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600 text-white rounded-md transition-colors"
         title="Экспортировать граф в изображение"
@@ -168,6 +210,24 @@ const { lang } = Astro.params as { lang: Locale };
       >
         ✨ Выделить связи
       </button>
+      <button
+        id="context-select-incoming"
+        class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm"
+      >
+        ← Выделить входящие связи
+      </button>
+      <button
+        id="context-select-outgoing"
+        class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm"
+      >
+        → Выделить исходящие связи
+      </button>
+      <button
+        id="context-select-all-edges"
+        class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm"
+      >
+        ↔ Выделить все связи
+      </button>
     </div>
     
     <!-- Легенда -->
@@ -194,6 +254,14 @@ const { lang } = Astro.params as { lang: Locale };
 
 <script>
   import type { GraphNode, GraphEdge, GraphData } from '@/types/graph';
+  import type { 
+    ForceGraphInstance, 
+    ForceLink, 
+    ForceManyBody, 
+    ForceCenter,
+    ForceGraphLink 
+  } from '@/types/force-graph';
+  import { escapeHtml } from '@/utils/escape-html';
   
   // Проверка доступности DOM API
   if (typeof window === 'undefined') {
@@ -201,29 +269,108 @@ const { lang } = Astro.params as { lang: Locale };
   }
   
   // Динамические импорты для клиентских библиотек
-  let ForceGraph: any = null;
-  let forceCenter: any = null;
-  let forceManyBody: any = null;
-  let forceLink: any = null;
+  let ForceGraph: ((container: HTMLElement) => ForceGraphInstance) | null = null;
+  let forceCenter: ForceCenter | null = null;
+  let forceManyBody: (() => ForceManyBody) | null = null;
+  let forceLink: ((links: ForceGraphLink[]) => ForceLink) | null = null;
   
   // Загрузить библиотеки асинхронно
   async function loadGraphLibraries() {
     if (!ForceGraph) {
       const forceGraphModule = await import('force-graph');
-      ForceGraph = forceGraphModule.default;
+      ForceGraph = forceGraphModule.default as (container: HTMLElement) => ForceGraphInstance;
     }
     if (!forceCenter) {
       const d3ForceModule = await import('d3-force');
-      forceCenter = d3ForceModule.forceCenter;
-      forceManyBody = d3ForceModule.forceManyBody;
-      forceLink = d3ForceModule.forceLink;
+      forceCenter = d3ForceModule.forceCenter as ForceCenter;
+      forceManyBody = (() => d3ForceModule.forceManyBody()) as () => ForceManyBody;
+      forceLink = ((links: ForceGraphLink[]) => d3ForceModule.forceLink(links)) as (links: ForceGraphLink[]) => ForceLink;
     }
   }
   
-  let graph: any = null;
+  // История навигации
+  class NavigationHistory {
+    private history: string[] = [];
+    private currentPosition: number = -1;
+    
+    addToHistory(nodeId: string) {
+      // Проверяем, не является ли это текущим узлом
+      if (this.history[this.currentPosition] === nodeId) {
+        return;
+      }
+      
+      // Удаляем узел из истории, если он уже есть
+      const index = this.history.indexOf(nodeId);
+      if (index > -1) {
+        this.history.splice(index, 1);
+      }
+      
+      // Удаляем все узлы после текущей позиции (если мы не в конце)
+      if (this.currentPosition < this.history.length - 1) {
+        this.history = this.history.slice(0, this.currentPosition + 1);
+      }
+      
+      // Добавляем новый узел
+      this.history.push(nodeId);
+      
+      // Ограничиваем историю 50 записями
+      if (this.history.length > 50) {
+        this.history.shift();
+      }
+      
+      // Обновляем позицию
+      this.currentPosition = this.history.length - 1;
+      
+      // Обновляем кнопки навигации
+      this.updateNavigationButtons();
+    }
+    
+    getPrevious(): string | null {
+      if (this.currentPosition > 0) {
+        this.currentPosition--;
+        this.updateNavigationButtons();
+        return this.history[this.currentPosition];
+      }
+      return null;
+    }
+    
+    getNext(): string | null {
+      if (this.currentPosition < this.history.length - 1) {
+        this.currentPosition++;
+        this.updateNavigationButtons();
+        return this.history[this.currentPosition];
+      }
+      return null;
+    }
+    
+    hasPrevious(): boolean {
+      return this.currentPosition > 0;
+    }
+    
+    hasNext(): boolean {
+      return this.currentPosition < this.history.length - 1;
+    }
+    
+    updateNavigationButtons() {
+      const backBtn = document.getElementById('nav-back') as HTMLButtonElement;
+      const forwardBtn = document.getElementById('nav-forward') as HTMLButtonElement;
+      
+      if (backBtn) {
+        backBtn.disabled = !this.hasPrevious();
+      }
+      if (forwardBtn) {
+        forwardBtn.disabled = !this.hasNext();
+      }
+    }
+  }
+  
+  let graph: ForceGraphInstance | null = null;
   let allData: GraphData | null = null;
   let highlightedNodeId: string | null = null;
   let contextMenuNode: GraphNode | null = null;
+  let focusModeActive: boolean = false;
+  let focusModeNodes: Set<string> = new Set();
+  const navigationHistory = new NavigationHistory();
   const lang = document.documentElement.lang || 'ru';
   
   async function init() {
@@ -257,7 +404,9 @@ const { lang } = Astro.params as { lang: Locale };
       
       renderGraph(allData);
     } catch (error) {
-      console.error('Error loading graph data:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error loading graph data:', error);
+      }
     }
   }
   
@@ -266,21 +415,35 @@ const { lang } = Astro.params as { lang: Locale };
     
     const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
     const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
+    const linkTypeSelect = document.getElementById('filter-link-type') as HTMLSelectElement;
     
-    const type = typeSelect.value;
-    const tag = tagSelect.value;
+    // Получаем множественные значения
+    const selectedTypes = Array.from(typeSelect.selectedOptions).map(opt => opt.value);
+    const selectedTags = Array.from(tagSelect.selectedOptions).map(opt => opt.value);
+    const selectedLinkTypes = Array.from(linkTypeSelect.selectedOptions).map(opt => opt.value);
     
-    const filteredNodes = allData.nodes.filter((n) => 
-      (!type || n.type === type) &&
-      (!tag || (n.tags && n.tags.includes(tag)))
-    );
+    // Фильтрация узлов
+    const filteredNodes = allData.nodes.filter((n) => {
+      const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(n.type);
+      const tagMatch = selectedTags.length === 0 || (n.tags && n.tags.some(tag => selectedTags.includes(tag)));
+      return typeMatch && tagMatch;
+    });
     
     const nodeIds = new Set(filteredNodes.map((n) => n.id));
-    const filteredEdges = allData.edges.filter((e) => 
+    
+    // Фильтрация рёбер
+    let filteredEdges = allData.edges.filter((e) => 
       nodeIds.has(e.from) && nodeIds.has(e.to)
     );
     
-    renderGraph({ nodes: filteredNodes, edges: filteredEdges });
+    // Фильтрация по типу связи
+    if (selectedLinkTypes.length > 0) {
+      filteredEdges = filteredEdges.filter((e) => 
+        selectedLinkTypes.includes(e.source) // e.source это 'explicit' или 'outbound'
+      );
+    }
+    
+    renderGraphWithControls({ nodes: filteredNodes, edges: filteredEdges });
   }
   
   function renderGraph(data: GraphData) {
@@ -303,13 +466,17 @@ const { lang } = Astro.params as { lang: Locale };
     const centerX = Math.floor(width / 2);
     const centerY = Math.floor(height / 2);
     
-    // Отладочная информация
-    console.log('Graph container:', { width, height, centerX, centerY });
-    console.log('Graph data:', { nodes: data.nodes.length, edges: data.edges.length });
+    // Отладочная информация (только в dev режиме)
+    if (import.meta.env.DEV) {
+      console.log('Graph container:', { width, height, centerX, centerY });
+      console.log('Graph data:', { nodes: data.nodes.length, edges: data.edges.length });
+    }
     
     // Проверка на пустые данные
     if (data.nodes.length === 0) {
-      console.warn('No nodes to display');
+      if (import.meta.env.DEV) {
+        console.warn('No nodes to display');
+      }
       return;
     }
     
@@ -390,12 +557,14 @@ const { lang } = Astro.params as { lang: Locale };
     // Создать граф
     // force-graph может работать со строками в links, но лучше использовать объекты узлов
     // Преобразуем links так, чтобы source и target были объектами узлов
-    const linksWithNodes = links.map(link => {
+    const linksWithNodes: ForceGraphLink[] = links.map(link => {
       const sourceNode = data.nodes.find(n => n.id === link.source);
       const targetNode = data.nodes.find(n => n.id === link.target);
       
       if (!sourceNode || !targetNode) {
-        console.warn('Link references missing node:', { source: link.source, target: link.target });
+        if (import.meta.env.DEV) {
+          console.warn('Link references missing node:', { source: link.source, target: link.target });
+        }
         return null;
       }
       
@@ -404,9 +573,11 @@ const { lang } = Astro.params as { lang: Locale };
         target: targetNode,
         sourceType: link.sourceType,
       };
-    }).filter((link): link is NonNullable<typeof link> => link !== null);
+    }).filter((link): link is ForceGraphLink => link !== null);
     
-    console.log('Links with nodes:', linksWithNodes.length, 'out of', links.length);
+    if (import.meta.env.DEV) {
+      console.log('Links with nodes:', linksWithNodes.length, 'out of', links.length);
+    }
     
     graph = ForceGraph()(container)
       .graphData({ nodes: data.nodes, links: linksWithNodes })
@@ -423,11 +594,11 @@ const { lang } = Astro.params as { lang: Locale };
         return colors[n.type] || '#6b7280';
       })
       .nodeVal((n: GraphNode) => nodeSizes.get(n.id) || 10)
-      .linkWidth((link: any) => {
+      .linkWidth((link: ForceGraphLink) => {
         // Ярче для explicit связей, тоньше для outbound
         return link.sourceType === 'explicit' ? 2 : 1.5;
       })
-      .linkColor((link: any) => {
+      .linkColor((link: ForceGraphLink) => {
         // Яркие цвета для рёбер, хорошо видимые на тёмном фоне
         // Используем rgba для прозрачности (0.8 = 80% непрозрачности)
         if (link.sourceType === 'explicit') {
@@ -442,7 +613,7 @@ const { lang } = Astro.params as { lang: Locale };
       .linkDirectionalArrowRelPos(1)
       .d3Force('center', forceCenter(width / 2, height / 2))
       .d3Force('charge', forceManyBody().strength(-300))
-      .d3Force('link', forceLink(linksWithNodes as any).id((d: any) => {
+      .d3Force('link', forceLink(linksWithNodes).id((d: GraphNode | string) => {
         // d - это объект узла, извлекаем id
         if (d && typeof d === 'object' && 'id' in d) return d.id;
         return String(d);
@@ -454,6 +625,9 @@ const { lang } = Astro.params as { lang: Locale };
       .cooldownTicks(100) // Продолжительность анимации после взаимодействия
       .onNodeClick((node: GraphNode) => {
         if (typeof window !== 'undefined' && node) {
+          // Добавить в историю навигации
+          navigationHistory.addToHistory(node.id);
+          
           const url = `/${lang}/${node.id}/`;
           window.location.href = url;
         }
@@ -474,7 +648,7 @@ const { lang } = Astro.params as { lang: Locale };
         contextMenuNode = node;
         showContextMenu(event.clientX, event.clientY);
       })
-      .onLinkHover((link: any) => {
+      .onLinkHover((link: ForceGraphLink | null) => {
         // Подсветка рёбер при наведении
         if (link) {
           container.style.cursor = 'pointer';
@@ -492,9 +666,12 @@ const { lang } = Astro.params as { lang: Locale };
   function resetFilters() {
     const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
     const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
+    const linkTypeSelect = document.getElementById('filter-link-type') as HTMLSelectElement;
     
-    typeSelect.value = '';
-    tagSelect.value = '';
+    // Сбросить множественный выбор
+    Array.from(typeSelect.options).forEach(opt => opt.selected = false);
+    Array.from(tagSelect.options).forEach(opt => opt.selected = false);
+    Array.from(linkTypeSelect.options).forEach(opt => opt.selected = false);
     
     if (allData) {
       renderGraph(allData);
@@ -522,14 +699,22 @@ const { lang } = Astro.params as { lang: Locale };
       // Центрировать на первом найденном узле
       const firstNode = matchingNodes[0];
       const graphData = graph.graphData();
-      const nodeObj = graphData.nodes.find((n: any) => n.id === firstNode.id);
-      
-      if (nodeObj && nodeObj.x !== undefined && nodeObj.y !== undefined) {
-        graph.centerAt(nodeObj.x, nodeObj.y, 1000);
-        graph.zoomToFit(400, 20);
+      if (graphData && 'nodes' in graphData && Array.isArray(graphData.nodes)) {
+        const nodeObj = (graphData.nodes as GraphNode[]).find((n: GraphNode) => n.id === firstNode.id);
         
-        // Подсветить найденные узлы
-        highlightSearchResults(matchingNodes.map(n => n.id));
+        if (nodeObj && 'x' in nodeObj && 'y' in nodeObj && nodeObj.x !== undefined && nodeObj.y !== undefined) {
+          graph.centerAt(nodeObj.x, nodeObj.y, 1000);
+          graph.zoomToFit(400, 20);
+          
+          // Подсветить найденные узлы
+          const foundNodeIds = matchingNodes.map(n => n.id);
+          highlightSearchResults(foundNodeIds);
+          
+          // Если режим фокуса активен, установить найденные узлы в фокус
+          if (focusModeActive) {
+            setFocusNodes(foundNodeIds);
+          }
+        }
       }
     } else {
       clearSearch();
@@ -542,14 +727,14 @@ const { lang } = Astro.params as { lang: Locale };
     
     // Увеличить размер найденных узлов через nodeVal
     const originalNodeVal = graph.nodeVal();
-    graph.nodeVal((node: any) => {
+    graph.nodeVal((node: GraphNode) => {
       const baseSize = typeof originalNodeVal === 'function' ? originalNodeVal(node) : 10;
       return nodeIds.includes(node.id) ? baseSize * 1.5 : baseSize;
     });
     
     // Изменить цвет найденных узлов
     const originalNodeColor = graph.nodeColor();
-    graph.nodeColor((node: any) => {
+    graph.nodeColor((node: GraphNode) => {
       if (nodeIds.includes(node.id)) {
         return '#fbbf24'; // Жёлтый для найденных узлов
       }
@@ -599,7 +784,7 @@ const { lang } = Astro.params as { lang: Locale };
     const originalLinkColor = graph.linkColor();
     
     // Изменить цвет несвязанных узлов (затемнить)
-    graph.nodeColor((node: any) => {
+    graph.nodeColor((node: GraphNode) => {
       const baseColor = typeof originalNodeColor === 'function' ? originalNodeColor(node) : getDefaultNodeColor(node);
       if (connectedNodeIds.has(node.id)) {
         return baseColor; // Оставить ярким
@@ -609,7 +794,7 @@ const { lang } = Astro.params as { lang: Locale };
     });
     
     // Изменить цвет рёбер
-    graph.linkColor((link: any) => {
+    graph.linkColor((link: ForceGraphLink) => {
       const sourceId = typeof link.source === 'string' ? link.source : link.source?.id;
       const targetId = typeof link.target === 'string' ? link.target : link.target?.id;
       const isConnected = sourceId === nodeId || targetId === nodeId;
@@ -629,16 +814,69 @@ const { lang } = Astro.params as { lang: Locale };
     highlightedNodeId = null;
     
     // Восстановить обычные цвета узлов
-    graph.nodeColor((n: GraphNode) => getDefaultNodeColor(n));
+    if (focusModeActive && focusModeNodes.size > 0) {
+      // Если режим фокуса активен, применить его
+      applyFocusMode();
+    } else {
+      graph.nodeColor((n: GraphNode) => getDefaultNodeColor(n));
+    }
     
     // Восстановить обычные цвета рёбер
-    graph.linkColor((link: any) => {
+    graph.linkColor((link: ForceGraphLink) => {
       if (link.sourceType === 'explicit') {
         return 'rgba(96, 165, 250, 0.8)';
       } else {
         return 'rgba(148, 163, 184, 0.8)';
       }
     });
+  }
+  
+  // Режим фокуса
+  function toggleFocusMode() {
+    focusModeActive = !focusModeActive;
+    const focusBtn = document.getElementById('focus-mode') as HTMLButtonElement;
+    
+    if (focusModeActive) {
+      // Активировать режим фокуса
+      // Фокус на узлах, найденных через поиск, или на всех видимых
+      if (focusModeNodes.size === 0 && allData) {
+        // Если нет выбранных узлов, использовать все видимые
+        const graphData = graph.graphData();
+        if (graphData && 'nodes' in graphData && Array.isArray(graphData.nodes)) {
+          focusModeNodes = new Set((graphData.nodes as GraphNode[]).map((n: GraphNode) => n.id));
+        }
+      }
+      applyFocusMode();
+      focusBtn?.classList.add('ring-2', 'ring-purple-400');
+    } else {
+      // Деактивировать режим фокуса
+      focusModeNodes.clear();
+      if (graph) {
+        graph.nodeColor((n: GraphNode) => getDefaultNodeColor(n));
+      }
+      focusBtn?.classList.remove('ring-2', 'ring-purple-400');
+    }
+  }
+  
+  function applyFocusMode() {
+    if (!graph || !allData || focusModeNodes.size === 0) return;
+    
+    const originalNodeColor = graph.nodeColor();
+    graph.nodeColor((node: GraphNode) => {
+      const baseColor = typeof originalNodeColor === 'function' ? originalNodeColor(node) : getDefaultNodeColor(node);
+      if (focusModeNodes.has(node.id)) {
+        return baseColor; // Оставить ярким
+      }
+      // Затемнить узлы не в фокусе
+      return addOpacityToColor(baseColor, 0.15);
+    });
+  }
+  
+  function setFocusNodes(nodeIds: string[]) {
+    focusModeNodes = new Set(nodeIds);
+    if (focusModeActive) {
+      applyFocusMode();
+    }
   }
   
   // Вспомогательная функция для получения цвета узла по умолчанию
@@ -690,43 +928,269 @@ const { lang } = Astro.params as { lang: Locale };
     }
   }
   
+  // Модальное окно экспорта
+  function showExportModal() {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.id = 'export-modal';
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl';
+    
+    let format: 'png' | 'svg' = 'png';
+    let pixelRatio = 2;
+    let theme: 'light' | 'dark' = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    let watermark = false;
+    let privacyMode = false;
+    let transparentBg = false;
+    
+    modalContent.innerHTML = `
+      <div class="mb-4">
+        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Настройки экспорта</h2>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Формат:
+          </label>
+          <select id="export-format" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+            <option value="png">PNG</option>
+            <option value="svg">SVG</option>
+          </select>
+        </div>
+        
+        <div id="pixel-ratio-setting" class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Качество (pixel ratio): <span id="pixel-ratio-value">${escapeHtml(String(pixelRatio))}</span>
+          </label>
+          <input type="range" id="pixel-ratio-slider" min="0.5" max="5" step="0.1" value="${pixelRatio}" class="w-full">
+        </div>
+        
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            Тема:
+          </label>
+          <select id="export-theme" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+            <option value="light">Светлая</option>
+            <option value="dark">Тёмная</option>
+          </select>
+        </div>
+        
+        <div class="mb-4">
+          <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" id="export-watermark" class="mr-2">
+            Добавить watermark
+          </label>
+        </div>
+        
+        <div class="mb-4">
+          <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" id="export-privacy" class="mr-2">
+            Режим приватности (затемнить текст)
+          </label>
+        </div>
+        
+        <div id="transparent-bg-setting" class="mb-4">
+          <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" id="export-transparent" class="mr-2">
+            Прозрачный фон
+          </label>
+        </div>
+        
+        <div class="flex gap-2 justify-end">
+          <button id="export-cancel" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors">
+            Отмена
+          </button>
+          <button id="export-save" class="px-4 py-2 bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600 text-white rounded-md transition-colors">
+            Экспортировать
+          </button>
+        </div>
+      </div>
+    `;
+    
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Обработчики событий
+    const formatSelect = modalContent.querySelector('#export-format') as HTMLSelectElement;
+    const pixelRatioSlider = modalContent.querySelector('#pixel-ratio-slider') as HTMLInputElement;
+    const pixelRatioValue = modalContent.querySelector('#pixel-ratio-value') as HTMLElement;
+    const pixelRatioSetting = modalContent.querySelector('#pixel-ratio-setting') as HTMLElement;
+    const transparentBgSetting = modalContent.querySelector('#transparent-bg-setting') as HTMLElement;
+    
+    formatSelect.addEventListener('change', (e) => {
+      format = (e.target as HTMLSelectElement).value as 'png' | 'svg';
+      if (format === 'svg') {
+        pixelRatioSetting.style.display = 'none';
+        transparentBgSetting.style.display = 'none';
+      } else {
+        pixelRatioSetting.style.display = 'block';
+        transparentBgSetting.style.display = 'block';
+      }
+    });
+    
+    pixelRatioSlider.addEventListener('input', (e) => {
+      pixelRatio = parseFloat((e.target as HTMLInputElement).value);
+      pixelRatioValue.textContent = pixelRatio.toFixed(1);
+    });
+    
+    modalContent.querySelector('#export-cancel')?.addEventListener('click', () => {
+      document.body.removeChild(modal);
+    });
+    
+    modalContent.querySelector('#export-save')?.addEventListener('click', async () => {
+      theme = (modalContent.querySelector('#export-theme') as HTMLSelectElement).value as 'light' | 'dark';
+      watermark = (modalContent.querySelector('#export-watermark') as HTMLInputElement).checked;
+      privacyMode = (modalContent.querySelector('#export-privacy') as HTMLInputElement).checked;
+      transparentBg = (modalContent.querySelector('#export-transparent') as HTMLInputElement).checked;
+      
+      document.body.removeChild(modal);
+      await exportGraphAsImage(format, pixelRatio, theme, watermark, privacyMode, transparentBg);
+    });
+    
+    // Закрыть при клике вне модального окна
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        document.body.removeChild(modal);
+      }
+    });
+  }
+  
   // Экспорт графа в изображение
-  async function exportGraphAsImage() {
+  async function exportGraphAsImage(
+    format: 'png' | 'svg' = 'png',
+    pixelRatio: number = 2,
+    theme: 'light' | 'dark' = 'light',
+    watermark: boolean = false,
+    privacyMode: boolean = false,
+    transparentBg: boolean = false
+  ) {
     if (!graph || !container) return;
     
     try {
-      // Динамический импорт html-to-image
-      const { toPng } = await import('html-to-image');
+      const { toPng, toSvg } = await import('html-to-image');
+      
+      // Сохранить текущую тему
+      const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+      
+      // Установить тему для экспорта
+      if (theme !== currentTheme) {
+        document.body.classList.toggle('theme-dark', theme === 'dark');
+        document.body.classList.toggle('theme-light', theme === 'light');
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
       
       // Сбросить zoom для полного отображения
       graph.zoomToFit(400);
-      
-      // Подождать завершения анимации
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Для WebGL canvas нужно использовать специальные опции
-      const dataUrl = await toPng(container, {
-        backgroundColor: window.matchMedia('(prefers-color-scheme: dark)').matches ? '#1f2937' : '#ffffff',
+      // Применить privacy mode
+      if (privacyMode) {
+        container.classList.add('privacy-mode');
+      }
+      
+      const options: {
+        quality: number;
+        pixelRatio?: number;
+        backgroundColor?: string;
+        cacheBust: boolean;
+        filter: (node: Node) => boolean;
+      } = {
         quality: 1.0,
-        pixelRatio: 2,
+        pixelRatio: format === 'png' ? pixelRatio : undefined,
+        backgroundColor: transparentBg && format === 'png' ? undefined : 
+          (theme === 'dark' ? '#1f2937' : '#ffffff'),
         cacheBust: true,
         filter: (node: Node) => {
-          // Исключить контекстное меню и другие UI элементы
-          return !(node as Element).id?.includes('context-menu');
+          return !(node as Element).id?.includes('context-menu') &&
+                 !(node as Element).id?.includes('export-modal');
         },
-      });
+      };
+      
+      const dataUrl = format === 'png' 
+        ? await toPng(container, options)
+        : await toSvg(container, options);
+      
+      // Восстановить тему
+      if (theme !== currentTheme) {
+        document.body.classList.toggle('theme-dark', currentTheme === 'dark');
+        document.body.classList.toggle('theme-light', currentTheme === 'light');
+      }
+      
+      // Убрать privacy mode
+      if (privacyMode) {
+        container.classList.remove('privacy-mode');
+      }
+      
+      // Добавить watermark (если нужно)
+      let finalDataUrl = dataUrl;
+      if (watermark && format === 'png') {
+        // Можно добавить watermark через canvas
+        // Пока пропускаем, так как это сложнее
+      }
       
       // Скачать изображение
       const link = document.createElement('a');
-      link.download = `graph-knowledge-${lang}-${new Date().toISOString().split('T')[0]}.png`;
-      link.href = dataUrl;
+      link.download = `graph-knowledge-${lang}-${new Date().toISOString().split('T')[0]}.${format}`;
+      link.href = finalDataUrl;
       link.click();
       
       showNotification('Граф экспортирован!', 'success');
     } catch (error) {
-      console.error('Export error:', error);
+      if (import.meta.env.DEV) {
+        console.error('Export error:', error);
+      }
       showNotification('Ошибка экспорта. Проверьте консоль для деталей.', 'error');
     }
+  }
+  
+  // Выбор рёбер по направлению
+  function selectEdgesByDirection(nodeId: string, direction: 'incoming' | 'outgoing' | 'connected') {
+    if (!graph || !allData) return;
+    
+    const edgesToHighlight = allData.edges.filter(edge => {
+      if (direction === 'incoming') {
+        return edge.to === nodeId;
+      } else if (direction === 'outgoing') {
+        return edge.from === nodeId;
+      } else {
+        // connected - все связи узла
+        return edge.from === nodeId || edge.to === nodeId;
+      }
+    });
+    
+    const connectedNodeIds = new Set<string>([nodeId]);
+    edgesToHighlight.forEach(edge => {
+      connectedNodeIds.add(edge.from);
+      connectedNodeIds.add(edge.to);
+    });
+    
+    // Подсветить связанные узлы
+    const originalNodeColor = graph.nodeColor();
+    graph.nodeColor((node: GraphNode) => {
+      const baseColor = typeof originalNodeColor === 'function' ? originalNodeColor(node) : getDefaultNodeColor(node);
+      if (connectedNodeIds.has(node.id)) {
+        return baseColor;
+      }
+      return addOpacityToColor(baseColor, 0.2);
+    });
+    
+    // Подсветить выбранные рёбра
+    const originalLinkColor = graph.linkColor();
+    graph.linkColor((link: ForceGraphLink) => {
+      const sourceId = typeof link.source === 'string' ? link.source : link.source?.id;
+      const targetId = typeof link.target === 'string' ? link.target : link.target?.id;
+      const isSelected = edgesToHighlight.some(e => 
+        (e.from === sourceId && e.to === targetId) || 
+        (e.from === targetId && e.to === sourceId)
+      );
+      
+      if (isSelected) {
+        return '#fbbf24'; // Яркий жёлтый для выбранных рёбер
+      }
+      return typeof originalLinkColor === 'function' ? originalLinkColor(link) : 'rgba(148, 163, 184, 0.2)';
+    });
+    
+    showNotification(`Выделено ${edgesToHighlight.length} связей`, 'success');
   }
   
   // Уведомления
@@ -804,12 +1268,16 @@ const { lang } = Astro.params as { lang: Locale };
       
       const res = await fetch(`/graph-data-${lang}.json`);
       if (!res.ok) {
-        console.error('Failed to load graph data');
+        if (import.meta.env.DEV) {
+          console.error('Failed to load graph data');
+        }
         return;
       }
       
       allData = await res.json() as GraphData;
-      console.log('Loaded graph data:', { nodes: allData.nodes.length, edges: allData.edges.length });
+      if (import.meta.env.DEV) {
+        console.log('Loaded graph data:', { nodes: allData.nodes.length, edges: allData.edges.length });
+      }
       
       // Заполнить select с тегами
       const allTags = [...new Set(allData.nodes.flatMap((n) => n.tags || []))].sort();
@@ -829,49 +1297,17 @@ const { lang } = Astro.params as { lang: Locale };
       
       renderGraphWithControls(allData);
     } catch (error) {
-      console.error('Error loading graph data:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error loading graph data:', error);
+      }
     }
   };
   
-  const originalApplyFilters = applyFilters;
-  applyFilters = function() {
-    if (!allData) return;
-    
-    const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
-    const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
-    
-    const type = typeSelect.value;
-    const tag = tagSelect.value;
-    
-    const filteredNodes = allData.nodes.filter((n) => 
-      (!type || n.type === type) &&
-      (!tag || (n.tags && n.tags.includes(tag)))
-    );
-    
-    const nodeIds = new Set(filteredNodes.map((n) => n.id));
-    const filteredEdges = allData.edges.filter((e) => 
-      nodeIds.has(e.from) && nodeIds.has(e.to)
-    );
-    
-    renderGraphWithControls({ nodes: filteredNodes, edges: filteredEdges });
-  };
-  
-  const originalResetFilters = resetFilters;
-  resetFilters = function() {
-    const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
-    const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
-    
-    typeSelect.value = '';
-    tagSelect.value = '';
-    
-    if (allData) {
-      renderGraphWithControls(allData);
-    }
-  };
   
   // Инициализация
   document.getElementById('filter-type')?.addEventListener('change', applyFilters);
   document.getElementById('filter-tags')?.addEventListener('change', applyFilters);
+  document.getElementById('filter-link-type')?.addEventListener('change', applyFilters);
   document.getElementById('reset-filters')?.addEventListener('click', resetFilters);
   
   // Поиск узлов
@@ -905,8 +1341,11 @@ const { lang } = Astro.params as { lang: Locale };
     clearSearch();
   });
   
+  // Режим фокуса
+  document.getElementById('focus-mode')?.addEventListener('click', toggleFocusMode);
+  
   // Экспорт изображения
-  document.getElementById('export-image')?.addEventListener('click', exportGraphAsImage);
+  document.getElementById('export-image')?.addEventListener('click', showExportModal);
   
   // Контекстное меню
   document.getElementById('context-copy-node')?.addEventListener('click', async () => {

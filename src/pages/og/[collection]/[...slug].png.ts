@@ -1,14 +1,15 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import { parseLeafBundleId, DEFAULT_LOCALE } from '@/utils/slugs';
+import { escapeHtml } from '@/utils/escape-html';
 import satori from 'satori';
 import sharp from 'sharp';
 import fs from 'fs/promises';
 import path from 'path';
 
-    // Загружаем шрифт (обязательно для satori!)
-    // satori требует TTF/OTF, не WOFF2
-    let fontData: ArrayBuffer | null = null;
+// Загружаем шрифт (обязательно для satori!)
+// satori требует TTF/OTF, не WOFF2
+let fontData: ArrayBuffer | null = null;
 
 async function loadFont() {
   if (fontData) return fontData;
@@ -20,13 +21,12 @@ async function loadFont() {
   } catch {
     // Fallback: используем встроенный шрифт или пропускаем
     // В production нужно добавить TTF шрифт в public/fonts/
+    // console.warn допустим для build-time операций в static mode
     console.warn('Font file not found, using fallback SVG without custom font');
   }
   
   return fontData;
 }
-
-import type { APIRoute } from 'astro';
 
 export async function GET({ params, url }: APIRoute) {
   const { collection, slug } = params;
@@ -64,8 +64,8 @@ export async function GET({ params, url }: APIRoute) {
       const svg = `
         <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
           <rect width="1200" height="630" fill="#1e40af"/>
-          <text x="600" y="280" font-family="Arial, sans-serif" font-size="64" font-weight="bold" fill="white" text-anchor="middle">${escapeXml(title)}</text>
-          ${description ? `<text x="600" y="380" font-family="Arial, sans-serif" font-size="32" fill="#e0e7ff" text-anchor="middle">${escapeXml(description.length > 100 ? description.substring(0, 100) + '...' : description)}</text>` : ''}
+          <text x="600" y="280" font-family="Arial, sans-serif" font-size="64" font-weight="bold" fill="white" text-anchor="middle">${escapeHtml(title)}</text>
+          ${description ? `<text x="600" y="380" font-family="Arial, sans-serif" font-size="32" fill="#e0e7ff" text-anchor="middle">${escapeHtml(description.length > 100 ? description.substring(0, 100) + '...' : description)}</text>` : ''}
         </svg>
       `;
       
@@ -153,13 +153,14 @@ export async function GET({ params, url }: APIRoute) {
       },
     });
   } catch (error) {
+    // В static mode APIRoute выполняется во время сборки, console.error допустим для build-time
     console.error('Error generating OG image:', error);
     
     // Fallback: дефолтное изображение
     const fallbackSvg = `
       <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
         <rect width="1200" height="630" fill="#1e40af"/>
-        <text x="600" y="315" font-family="Arial" font-size="48" fill="white" text-anchor="middle">${collection}</text>
+        <text x="600" y="315" font-family="Arial" font-size="48" fill="white" text-anchor="middle">${escapeHtml(collection)}</text>
       </svg>
     `;
     
@@ -194,18 +195,10 @@ export async function getStaticPaths() {
       });
       }
     } catch (error) {
+      // getStaticPaths выполняется во время сборки, console.error допустим для build-time
       console.error(`Error generating paths for ${collection}:`, error);
     }
   }
   
   return paths;
-}
-
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
 }

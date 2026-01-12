@@ -348,4 +348,130 @@ export default function pagefindIntegration(): AstroIntegration {
 - Конкретные пути к файлам с примерами
 - Приоритеты копирования кода (высший/средний/низкий)
 
-**Суть:** Справочники по примерам кода нужно сохранять, даже если исходные файлы переносятся. Обновляй пути, н
+**Суть:** Справочники по примерам кода нужно сохранять, даже если исходные файлы переносятся. Обновляй пути, не удаляй файлы.
+
+---
+
+## 2026-01-11: Типизация внешних библиотек без TypeScript типов
+
+### ⚡ Создание типов-оберток в отдельных .ts файлах
+
+**Проблема:** Библиотеки типа `force-graph` и `d3-force` не предоставляют TypeScript типы, что приводит к использованию `any` везде.
+
+**Неправильно (в .astro файле):**
+```typescript
+// ❌ ПЛОХО — типы в .astro файле, не переиспользуются
+<script>
+  let graph: any = null;
+  let ForceGraph: any = null;
+</script>
+```
+
+**Правильно (отдельный .ts файл):**
+```typescript
+// ✅ ВЕРНО — src/types/force-graph.ts
+import type { GraphNode, GraphEdge } from './graph';
+
+export interface ForceGraphInstance {
+  graphData(data?: { nodes: GraphNode[]; links: ForceGraphLink[] }): ForceGraphInstance | { nodes: GraphNode[]; links: ForceGraphLink[] };
+  nodeColor(fn: (node: GraphNode) => string): ForceGraphInstance;
+  // ... остальные методы
+}
+
+export interface ForceGraphLink {
+  source: GraphNode | string;
+  target: GraphNode | string;
+  sourceType?: 'explicit' | 'outbound';
+}
+```
+
+**Почему .ts, а не в .astro:**
+
+1. **Переиспользование типов**
+   - Типы можно импортировать в тестах, других компонентах, утилитах
+   - `.astro` файлы компилируются в специфичный формат, типы из них сложнее экспортировать
+
+2. **Лучшая поддержка IDE**
+   - TypeScript сервер лучше работает с `.ts` файлами
+   - Автодополнение и навигация по типам работают корректнее
+
+3. **Соответствие правилам codereviewrule-updated.mdc**
+   - Правило: "Типизация Node и Edge (не `any[]`, использовать интерфейсы)"
+   - Отдельные файлы типов — явный паттерн для типобезопасности
+
+4. **Разделение ответственности**
+   - `.astro` файлы — для компонентов и логики
+   - `.ts` файлы — для чистых типов и утилит
+   - Следует принципу Single Responsibility
+
+5. **Тестируемость**
+   - Типы из `.ts` файлов можно использовать в unit-тестах
+   - Легче создавать моки и тестовые данные
+
+**Использование в .astro:**
+```typescript
+// src/pages/[lang]/graph.astro
+<script>
+  import type { 
+    ForceGraphInstance, 
+    ForceGraphLink,
+    ForceLink,
+    ForceManyBody,
+    ForceCenter 
+  } from '@/types/force-graph';
+  
+  let graph: ForceGraphInstance | null = null;
+  let forceCenter: ForceCenter | null = null;
+  
+  // Типизированные колбэки
+  graph.linkColor((link: ForceGraphLink) => {
+    return link.sourceType === 'explicit' ? '#3b82f6' : '#94a3b8';
+  });
+</script>
+```
+
+**Суть:** Для типов внешних библиотек создавай отдельные `.ts` файлы. Это улучшает переиспользование, IDE поддержку и соответствует правилам типобезопасности.
+
+---
+
+## 2026-01-11: Улучшение типизации в клиентских скриптах
+
+### ⚡ Проверка типов для graphData() и других динамических методов
+
+**Проблема:** Методы типа `graph.graphData()` возвращают `unknown` или `any`, что требует проверок типов перед использованием.
+
+**Неправильно:**
+```typescript
+// ❌ ПЛОХО — прямое обращение без проверки
+const graphData = graph.graphData();
+const nodeObj = graphData.nodes.find(n => n.id === nodeId); // Ошибка: nodes может не существовать
+```
+
+**Правильно (type guards):**
+```typescript
+// ✅ ВЕРНО — проверка типов перед доступом
+const graphData = graph.graphData();
+if (graphData && 'nodes' in graphData && Array.isArray(graphData.nodes)) {
+  const nodeObj = (graphData.nodes as GraphNode[]).find((n: GraphNode) => n.id === nodeId);
+  
+  if (nodeObj && 'x' in nodeObj && 'y' in nodeObj && nodeObj.x !== undefined) {
+    graph.centerAt(nodeObj.x, nodeObj.y, 1000);
+  }
+}
+```
+
+**Почему это важно:**
+
+1. **Безопасность типов**
+   - Предотвращает runtime ошибки при доступе к несуществующим свойствам
+   - TypeScript не может гарантировать структуру данных из внешних библиотек
+
+2. **Соответствие правилам**
+   - Правило: "Dynamic routes check undefined before .render()"
+   - Аналогично: проверяй данные перед использованием
+
+3. **Отладка**
+   - Явные проверки делают код более читаемым
+   - Легче понять, где может произойти ошибка
+
+**Суть:** Всегда используй type guards для данных из внешних библиотек. Проверяй существование свойств перед доступом.

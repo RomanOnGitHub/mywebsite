@@ -200,19 +200,19 @@
       "tags": []
     },
     {
-      "id": "industries/ecommerce",
-      "title": "E-commerce",
-      "type": "industries",
-      "lang": "ru",
-      "slug": "ecommerce",
-      "tags": []
-    },
-    {
       "id": "industries/education",
       "title": "Образование",
       "type": "industries",
       "lang": "ru",
       "slug": "education",
+      "tags": []
+    },
+    {
+      "id": "industries/ecommerce",
+      "title": "E-commerce",
+      "type": "industries",
+      "lang": "ru",
+      "slug": "ecommerce",
       "tags": []
     }
   ],
@@ -478,26 +478,6 @@
       "source": "explicit"
     },
     {
-      "from": "industries/ecommerce",
-      "to": "services/seo-consulting",
-      "source": "explicit"
-    },
-    {
-      "from": "industries/ecommerce",
-      "to": "services/web-development",
-      "source": "explicit"
-    },
-    {
-      "from": "industries/ecommerce",
-      "to": "services/seo-consulting",
-      "source": "explicit"
-    },
-    {
-      "from": "industries/ecommerce",
-      "to": "services/web-development",
-      "source": "explicit"
-    },
-    {
       "from": "industries/education",
       "to": "services/web-development",
       "source": "explicit"
@@ -515,6 +495,26 @@
     {
       "from": "industries/education",
       "to": "services/content-creation",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/ecommerce",
+      "to": "services/seo-consulting",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/ecommerce",
+      "to": "services/web-development",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/ecommerce",
+      "to": "services/seo-consulting",
+      "source": "explicit"
+    },
+    {
+      "from": "industries/ecommerce",
+      "to": "services/web-development",
       "source": "explicit"
     }
   ]
