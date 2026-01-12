@@ -1,5 +1,6 @@
 import { visit } from 'unist-util-visit';
 import type { Root, Link } from 'mdast';
+import type { VFile } from 'vfile';
 import path from 'path';
 
 /**
@@ -30,7 +31,7 @@ function resolveLeafBundlePath(filePath: string, linkUrl: string): string {
 }
 
 export function remarkExtractLinks() {
-  return (tree: Root, file: any) => {
+  return (tree: Root, file: VFile) => {
     const links: string[] = [];
     const filePath = file.history?.[0] || file.path || '';
     

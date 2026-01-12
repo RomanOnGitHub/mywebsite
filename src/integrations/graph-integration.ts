@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import { SUPPORTED_LOCALES, parseLeafBundleId } from '../utils/slugs.js';
 import matter from 'gray-matter';
 import { glob } from 'glob';
+import type { GraphNode, GraphEdge, GraphData } from '../types/graph';
 
 export default function graphIntegration(): AstroIntegration {
   return {
@@ -15,10 +16,10 @@ export default function graphIntegration(): AstroIntegration {
         
         try {
           const contentDir = path.join(process.cwd(), 'src', 'content');
-          const collections = ['blog', 'cases', 'services', 'industries'];
+          const collections = ['blog', 'cases', 'services', 'industries'] as const;
           
-          const nodes: any[] = [];
-          const edges: any[] = [];
+          const nodes: GraphNode[] = [];
+          const edges: GraphEdge[] = [];
           
           // Читаем файлы напрямую из файловой системы
           for (const collection of collections) {
@@ -43,10 +44,10 @@ export default function graphIntegration(): AstroIntegration {
               nodes.push({
                 id: nodeId,
                 title: data.title || '',
-                type: collection,
+                type: collection as GraphNode['type'],
                 lang,
                 slug,
-                tags: data.tags || [],
+                tags: (data.tags || []) as string[],
               });
               
               // Explicit edges
@@ -104,7 +105,7 @@ export default function graphIntegration(): AstroIntegration {
               langNodeIds.has(e.from) && langNodeIds.has(e.to)
             );
             
-            const graphData = { nodes: langNodes, edges: langEdges };
+            const graphData: GraphData = { nodes: langNodes, edges: langEdges };
             
             await fs.writeFile(
               path.join(publicDir, `graph-data-${lang}.json`),
@@ -119,7 +120,7 @@ export default function graphIntegration(): AstroIntegration {
           await new Promise<void>((resolve, reject) => {
             const pagefind = spawn('npx', ['-y', 'pagefind', 
               '--site', dir.pathname,
-              '--glob', '{ru,en,de,tr,zh-CN,es,fr,pt,it,ar}/**/*.html'
+              '--glob', '{ru,en,de,tr,zh-cn,es,fr,pt,it,ar}/**/*.html'
             ], {
               stdio: 'inherit', 
               shell: true,

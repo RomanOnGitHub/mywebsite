@@ -4,7 +4,8 @@
  * Leaf Bundle структура: slug/lang.mdx (например, "my-article/ru.mdx")
  */
 
-export const SUPPORTED_LOCALES = ['ru', 'en', 'de', 'tr', 'zh-CN', 'es', 'fr', 'pt', 'it', 'ar'] as const;
+// Используем zh-cn (lowercase) для соответствия BCP 47 стандарту
+export const SUPPORTED_LOCALES = ['ru', 'en', 'de', 'tr', 'zh-cn', 'es', 'fr', 'pt', 'it', 'ar'] as const;
 export const RTL_LOCALES = ['ar'] as const;
 export const DEFAULT_LOCALE = 'ru';
 
@@ -32,7 +33,7 @@ export function slugToLocale(slug: string): Locale | undefined {
  * @returns 'ltr' | 'rtl'
  */
 export function localeToDir(locale: string): 'ltr' | 'rtl' {
-  if (RTL_LOCALES.includes(locale as any)) {
+  if ((RTL_LOCALES as readonly string[]).includes(locale)) {
     return 'rtl';
   }
   

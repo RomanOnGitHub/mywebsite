@@ -94,10 +94,16 @@ const { lang } = Astro.params as { lang: Locale };
 
 <script>
   import ForceGraph from 'force-graph';
-  import * as d3 from 'd3-force';
+  import { forceCenter, forceManyBody, forceLink } from 'd3-force';
+  import type { GraphNode, GraphEdge, GraphData } from '@/types/graph';
   
-  let graph: any = null;
-  let allData: { nodes: any[]; edges: any[] } | null = null;
+  // Проверка доступности DOM API
+  if (typeof window === 'undefined') {
+    throw new Error('This script must run in browser environment');
+  }
+  
+  let graph: ReturnType<typeof ForceGraph> | null = null;
+  let allData: GraphData | null = null;
   const lang = document.documentElement.lang || 'ru';
   
   async function init() {
@@ -108,10 +114,10 @@ const { lang } = Astro.params as { lang: Locale };
         return;
       }
       
-      allData = await res.json();
+      allData = await res.json() as GraphData;
       
       // Заполнить select с тегами
-      const allTags = [...new Set(allData.nodes.flatMap((n: any) => n.tags || []))].sort();
+      const allTags = [...new Set(allData.nodes.flatMap((n) => n.tags || []))].sort();
       const tagsSelect = document.getElementById('filter-tags') as HTMLSelectElement;
       
       // Очистить существующие опции (кроме "Все теги")
@@ -141,20 +147,20 @@ const { lang } = Astro.params as { lang: Locale };
     const type = typeSelect.value;
     const tag = tagSelect.value;
     
-    const filteredNodes = allData.nodes.filter((n: any) => 
+    const filteredNodes = allData.nodes.filter((n) => 
       (!type || n.type === type) &&
       (!tag || (n.tags && n.tags.includes(tag)))
     );
     
-    const nodeIds = new Set(filteredNodes.map((n: any) => n.id));
-    const filteredEdges = allData.edges.filter((e: any) => 
+    const nodeIds = new Set(filteredNodes.map((n) => n.id));
+    const filteredEdges = allData.edges.filter((e) => 
       nodeIds.has(e.from) && nodeIds.has(e.to)
     );
     
     renderGraph({ nodes: filteredNodes, edges: filteredEdges });
   }
   
-  function renderGraph(data: { nodes: any[]; edges: any[] }) {
+  function renderGraph(data: GraphData) {
     const container = document.getElementById('graph-container');
     if (!container) return;
     
@@ -178,15 +184,15 @@ const { lang } = Astro.params as { lang: Locale };
     console.log('Graph container:', { width, height, centerX, centerY });
     
     // Преобразовать edges в links для force-graph
-    const links = data.edges.map((e: any) => ({
+    const links = data.edges.map((e) => ({
       source: e.from,
       target: e.to,
     }));
     
     // Вычисляем размеры узлов для учёта в границах
-    const nodeSizes = new Map();
-    data.nodes.forEach((node: any) => {
-      const connections = data.edges.filter((e: any) => 
+    const nodeSizes = new Map<string, number>();
+    data.nodes.forEach((node) => {
+      const connections = data.edges.filter((e) => 
         e.from === node.id || e.to === node.id
       ).length;
       const size = Math.max(5, Math.min(20, connections * 2));
@@ -197,10 +203,10 @@ const { lang } = Astro.params as { lang: Locale };
     // Корректирует скорости узлов, когда они выходят за пределы
     // Это не хардкод - мы не устанавливаем позиции, а только корректируем скорости
     const boundingBoxForce = () => {
-      let nodes: any[];
+      let nodes: Array<GraphNode & { x?: number; y?: number; vx?: number; vy?: number }>;
       
       const force = (alpha: number) => {
-        nodes.forEach((node: any) => {
+        nodes.forEach((node) => {
           const nodeSize = nodeSizes.get(node.id) || 10;
           const xMin = margin + nodeSize;
           const xMax = width - margin - nodeSize;
@@ -224,7 +230,7 @@ const { lang } = Astro.params as { lang: Locale };
         });
       };
       
-      force.initialize = (n: any[]) => {
+      force.initialize = (n: Array<GraphNode & { x?: number; y?: number; vx?: number; vy?: number }>) => {
         nodes = n;
       };
       
@@ -233,7 +239,7 @@ const { lang } = Astro.params as { lang: Locale };
     
     // Устанавливаем начальные позиции узлов ПЕРЕД созданием графа
     // Это гарантирует, что позиции будут использованы при инициализации
-    data.nodes.forEach((node: any, index: number) => {
+    data.nodes.forEach((node, index: number) => {
       // Распределяем узлы равномерно по кругу вокруг центра
       const angle = (index / data.nodes.length) * Math.PI * 2;
       const radius = Math.min(width, height) * 0.1;
@@ -253,9 +259,9 @@ const { lang } = Astro.params as { lang: Locale };
       .graphData({ nodes: data.nodes, links })
       .width(width)
       .height(height)
-      .nodeLabel((n: any) => n.title)
-      .nodeColor((n: any) => {
-        const colors: Record<string, string> = {
+      .nodeLabel((n: GraphNode) => n.title)
+      .nodeColor((n: GraphNode) => {
+        const colors: Record<GraphNode['type'], string> = {
           blog: '#3b82f6',
           cases: '#10b981',
           services: '#f59e0b',
@@ -263,18 +269,20 @@ const { lang } = Astro.params as { lang: Locale };
         };
         return colors[n.type] || '#6b7280';
       })
-      .nodeVal((n: any) => nodeSizes.get(n.id) || 10)
+      .nodeVal((n: GraphNode) => nodeSizes.get(n.id) || 10)
       .linkWidth(1)
       .linkDirectionalArrowLength(6)
       .linkDirectionalArrowRelPos(1)
-      .d3Force('center', d3.forceCenter(width / 2, height / 2))
-      .d3Force('charge', d3.forceManyBody().strength(-300))
-      .d3Force('link', d3.forceLink(links).id((d: any) => d.id).distance(100))
+      .d3Force('center', forceCenter(width / 2, height / 2))
+      .d3Force('charge', forceManyBody().strength(-300))
+      .d3Force('link', forceLink(links).id((d: { id: string }) => d.id).distance(100))
       .d3Force('boundingBox', boundingBoxForce())
-      .onNodeClick((node: any) => {
-        window.location.href = `/${lang}/${node.id}/`;
+      .onNodeClick((node: GraphNode) => {
+        if (typeof window !== 'undefined') {
+          window.location.href = `/${lang}/${node.id}/`;
+        }
       })
-      .onNodeHover((node: any) => {
+      .onNodeHover((node: GraphNode | null) => {
         if (node) {
           container.style.cursor = 'pointer';
         } else {

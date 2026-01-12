@@ -4,13 +4,14 @@ import Sidebar from '@/components/Sidebar.astro';
 import Analytics from '@/components/Analytics.astro';
 import CookieConsent from '@/components/CookieConsent.astro';
 import { localeToDir } from '@/utils/slugs';
+import type { StructuredData } from '@/types/structured-data';
 
 interface Props {
   title: string;
   description: string;
   slug?: string;
   lang?: string;
-  structuredData?: Record<string, any>;
+  structuredData?: StructuredData;
 }
 
 const { title, description, slug, lang = 'ru', structuredData } = Astro.props;

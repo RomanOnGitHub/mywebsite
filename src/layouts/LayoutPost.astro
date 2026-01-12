@@ -3,6 +3,7 @@ import Layout from './Layout.astro';
 import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import Backlinks from '@/components/Backlinks.astro';
 import Recommendations from '@/components/Recommendations.astro';
+import type { StructuredData } from '@/types/structured-data';
 
 interface Props {
   title: string;
@@ -10,7 +11,7 @@ interface Props {
   slug: string;
   lang: string;
   collection: string;
-  structuredData?: Record<string, any>;
+  structuredData?: StructuredData;
 }
 
 const { title, description, slug, lang, collection, structuredData } = Astro.props;

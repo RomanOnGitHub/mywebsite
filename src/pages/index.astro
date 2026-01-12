@@ -1,6 +1,6 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import { SUPPORTED_LOCALES } from '@/utils/slugs';
+import { SUPPORTED_LOCALES, getLocalizedPath, parseLeafBundleId, DEFAULT_LOCALE } from '@/utils/slugs';
 import { getCollection, type CollectionEntry } from 'astro:content';
 
 // Получаем последние записи для каждого типа контента
@@ -59,14 +59,14 @@ const latestIndustries = industries.slice(0, 5);
       
       <div class="flex flex-wrap justify-center gap-4">
         <a
-          href="/ru/graph/"
+          href={getLocalizedPath('graph/', DEFAULT_LOCALE)}
           data-astro-prefetch
           class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium"
         >
           Граф знаний
         </a>
         <a
-          href="/ru/blog/"
+          href={getLocalizedPath('blog/', DEFAULT_LOCALE)}
           data-astro-prefetch
           class="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors font-medium"
         >
@@ -81,11 +81,11 @@ const latestIndustries = industries.slice(0, 5);
         <h2 class="text-2xl font-bold mb-4">Последние записи блога</h2>
         <ul class="space-y-2">
           {latestBlog.map(post => {
-            const slug = post.id.split('/').slice(0, -1).join('/');
+            const { slug } = parseLeafBundleId(post.id);
             return (
               <li>
                 <a 
-                  href={`/ru/blog/${slug}/`}
+                  href={getLocalizedPath(`blog/${slug}/`, DEFAULT_LOCALE)}
                   class="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   {post.data.title}
@@ -100,11 +100,11 @@ const latestIndustries = industries.slice(0, 5);
         <h2 class="text-2xl font-bold mb-4">Кейсы</h2>
         <ul class="space-y-2">
           {latestCases.map(caseItem => {
-            const slug = caseItem.id.split('/').slice(0, -1).join('/');
+            const { slug } = parseLeafBundleId(caseItem.id);
             return (
               <li>
                 <a 
-                  href={`/ru/cases/${slug}/`}
+                  href={getLocalizedPath(`cases/${slug}/`, DEFAULT_LOCALE)}
                   class="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   {caseItem.data.title}
@@ -119,11 +119,11 @@ const latestIndustries = industries.slice(0, 5);
         <h2 class="text-2xl font-bold mb-4">Услуги</h2>
         <ul class="space-y-2">
           {latestServices.map(service => {
-            const slug = service.id.split('/').slice(0, -1).join('/');
+            const { slug } = parseLeafBundleId(service.id);
             return (
               <li>
                 <a 
-                  href={`/ru/services/${slug}/`}
+                  href={getLocalizedPath(`services/${slug}/`, DEFAULT_LOCALE)}
                   class="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   {service.data.title}
@@ -138,11 +138,11 @@ const latestIndustries = industries.slice(0, 5);
         <h2 class="text-2xl font-bold mb-4">Отрасли</h2>
         <ul class="space-y-2">
           {latestIndustries.map(industry => {
-            const slug = industry.id.split('/').slice(0, -1).join('/');
+            const { slug } = parseLeafBundleId(industry.id);
             return (
               <li>
                 <a 
-                  href={`/ru/industries/${slug}/`}
+                  href={getLocalizedPath(`industries/${slug}/`, DEFAULT_LOCALE)}
                   class="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   {industry.data.title}
@@ -158,19 +158,19 @@ const latestIndustries = industries.slice(0, 5);
     <section class="text-center">
       <h2 class="text-3xl font-bold mb-6">Разделы сайта</h2>
       <div class="flex flex-wrap justify-center gap-4">
-        <a href="/ru/blog/" data-astro-prefetch class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('blog/', DEFAULT_LOCALE)} data-astro-prefetch class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
           Блог
         </a>
-        <a href="/ru/cases/" data-astro-prefetch class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('cases/', DEFAULT_LOCALE)} data-astro-prefetch class="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-md transition-colors">
           Кейсы
         </a>
-        <a href="/ru/services/" data-astro-prefetch class="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('services/', DEFAULT_LOCALE)} data-astro-prefetch class="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-md transition-colors">
           Услуги
         </a>
-        <a href="/ru/industries/" data-astro-prefetch class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('industries/', DEFAULT_LOCALE)} data-astro-prefetch class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
           Отрасли
         </a>
-        <a href="/ru/graph/" data-astro-prefetch class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors">
+        <a href={getLocalizedPath('graph/', DEFAULT_LOCALE)} data-astro-prefetch class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors">
           Граф знаний
         </a>
       </div>

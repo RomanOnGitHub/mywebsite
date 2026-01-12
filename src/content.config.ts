@@ -1,8 +1,9 @@
-import { defineCollection, z } from 'astro:content';
+import { defineCollection, z, reference } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '@/utils/slugs';
 
-const LANG_PATTERN = '{ru,en,de,tr,zh-CN,es,fr,pt,it,ar}';
+// Используем zh-cn (lowercase) для соответствия BCP 47 стандарту
+const LANG_PATTERN = '{ru,en,de,tr,zh-cn,es,fr,pt,it,ar}';
 
 const blog = defineCollection({
   loader: glob({ 
@@ -18,8 +19,8 @@ const blog = defineCollection({
       updatedDate: z.coerce.date().optional(),
       heroImage: image().optional(),
       tags: z.array(z.string()).optional(),
-      relatedCases: z.array(z.string()).optional(),
-      relatedServices: z.array(z.string()).optional(),
+      relatedCases: z.array(reference('cases')).optional(),
+      relatedServices: z.array(reference('services')).optional(),
     }),
 });
 
@@ -34,8 +35,8 @@ const cases = defineCollection({
       description: z.string(),
       lang: z.enum(SUPPORTED_LOCALES).default(DEFAULT_LOCALE),
       heroImage: image().optional(),
-      relatedServices: z.array(z.string()).optional(),
-      relatedIndustries: z.array(z.string()).optional(),
+      relatedServices: z.array(reference('services')).optional(),
+      relatedIndustries: z.array(reference('industries')).optional(),
     }),
 });
 
@@ -66,8 +67,8 @@ const industries = defineCollection({
       lang: z.enum(SUPPORTED_LOCALES).default(DEFAULT_LOCALE),
       icon: z.string().optional(),
       heroImage: image().optional(),
-      relatedServices: z.array(z.string()).optional(),
-      relatedCases: z.array(z.string()).optional(),
+      relatedServices: z.array(reference('services')).optional(),
+      relatedCases: z.array(reference('cases')).optional(),
     }),
 });
 

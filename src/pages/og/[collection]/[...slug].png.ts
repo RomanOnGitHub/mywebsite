@@ -26,7 +26,9 @@ async function loadFont() {
   return fontData;
 }
 
-export async function GET({ params, url }: any) {
+import type { APIRoute } from 'astro';
+
+export async function GET({ params, url }: APIRoute) {
   const { collection, slug } = params;
   
   // Валидация коллекции
@@ -37,7 +39,7 @@ export async function GET({ params, url }: any) {
   
   try {
     // Получаем запись из коллекции
-    const entries = await getCollection(collection as any);
+    const entries = await getCollection(collection as 'blog' | 'cases' | 'services' | 'industries');
     const slugParts = Array.isArray(slug) ? slug.join('/') : slug;
     
     // Находим запись по slug (используем default locale)
@@ -180,7 +182,7 @@ export async function getStaticPaths() {
   
   for (const collection of collections) {
     try {
-      const entries = await getCollection(collection as any);
+      const entries = await getCollection(collection as 'blog' | 'cases' | 'services' | 'industries');
       
       for (const entry of entries) {
         const { slug } = parseLeafBundleId(entry.id);

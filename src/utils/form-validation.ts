@@ -1,4 +1,4 @@
-import { z } from 'astro:schema';
+import { z } from 'zod';
 
 /**
  * Zod схема для валидации формы запроса перевода

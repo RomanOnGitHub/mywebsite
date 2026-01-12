@@ -6,6 +6,9 @@ interface Props {
 }
 
 const { slug, lang, collection } = Astro.props;
+// Получаем API ключ из astro:env на сервере и передаём в клиентский скрипт
+// Используем безопасный доступ с проверкой наличия Astro.env
+const apiKey = (typeof Astro !== 'undefined' && Astro.env?.PUBLIC_WEB3FORMS_KEY) || '';
 ---
 
 <meta name="robots" content="noindex, nofollow" />
@@ -27,6 +30,7 @@ const { slug, lang, collection } = Astro.props;
     <form 
       class="space-y-4"
       id="translation-request-form"
+      data-api-key={apiKey}
     >
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="collection" value={collection} />
@@ -245,8 +249,8 @@ const { slug, lang, collection } = Astro.props;
           return;
         }
         
-        // Проверяем наличие ключа API
-        const apiKey = import.meta.env.PUBLIC_WEB3FORMS_KEY;
+        // Получаем API ключ из data-атрибута формы (передан с сервера через astro:env)
+        const apiKey = form.dataset.apiKey;
         if (!apiKey) {
           throw new Error('API ключ не настроен');
         }
