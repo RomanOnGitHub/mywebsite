@@ -86,6 +86,7 @@ const latestIndustries = industries.slice(0, 5);
               <li>
                 <a 
                   href={getLocalizedPath(`blog/${slug}/`, DEFAULT_LOCALE)}
+                  data-astro-prefetch
                   class="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   {post.data.title}
@@ -105,6 +106,7 @@ const latestIndustries = industries.slice(0, 5);
               <li>
                 <a 
                   href={getLocalizedPath(`cases/${slug}/`, DEFAULT_LOCALE)}
+                  data-astro-prefetch
                   class="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   {caseItem.data.title}
@@ -124,6 +126,7 @@ const latestIndustries = industries.slice(0, 5);
               <li>
                 <a 
                   href={getLocalizedPath(`services/${slug}/`, DEFAULT_LOCALE)}
+                  data-astro-prefetch
                   class="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   {service.data.title}
@@ -143,6 +146,7 @@ const latestIndustries = industries.slice(0, 5);
               <li>
                 <a 
                   href={getLocalizedPath(`industries/${slug}/`, DEFAULT_LOCALE)}
+                  data-astro-prefetch
                   class="text-blue-600 dark:text-blue-400 hover:underline"
                 >
                   {industry.data.title}

@@ -3,7 +3,7 @@
  * Используем env переменные с fallback на безопасные значения
  * 
  * ⚠️ PRODUCTION: Обязательно настройте переменные окружения перед деплоем:
- * - SITE_URL или PUBLIC_SITE_URL - абсолютный URL сайта (для OG tags, canonical, sitemap)
+ * - PUBLIC_SITE_URL - абсолютный URL сайта (для OG tags, canonical, sitemap)
  * - PUBLIC_TWITTER_HANDLE - Twitter handle для Twitter Cards
  * 
  * Fallback значения ('https://example.com', '@example') используются только для разработки.

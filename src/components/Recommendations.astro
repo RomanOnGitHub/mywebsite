@@ -38,12 +38,8 @@ const excludeSet = JSON.stringify(excludeSlugs);
       }
       
       try {
-        const res = await fetch(`/graph-data-${lang}.json`);
-        if (!res.ok) {
-          console.warn(`Graph data not found for lang: ${lang}`);
-          this.innerHTML = '';
-          return;
-        }
+        const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
+        const res = await fetchWithTimeout(`/graph-data-${lang}.json`, {}, 10000);
         
         const graph = await res.json();
         
@@ -100,7 +96,11 @@ const excludeSet = JSON.stringify(excludeSlugs);
         // Рендерим рекомендации
         this.render(recommendations, lang);
       } catch (error) {
-        console.error('Error loading recommendations:', error);
+        // Логируем ошибки для отладки (только в dev режиме)
+        if (import.meta.env.DEV) {
+          console.error('Error loading recommendations:', error);
+        }
+        // Показываем пустое состояние при ошибке
         this.innerHTML = '';
       }
     }
@@ -112,6 +112,10 @@ const excludeSet = JSON.stringify(excludeSlugs);
       }
       const pathWithSlash = normalizedPath.endsWith('/') ? normalizedPath : `${normalizedPath}/`;
       return `/${lang}/${pathWithSlash}`;
+    }
+    
+    escapeHtml(text: string): string {
+      return escapeHtml(text);
     }
     
     render(recommendations: Array<{ node: { id: string; title: string; type?: string }; score: number; commonTags: string[] }>, lang: string) {

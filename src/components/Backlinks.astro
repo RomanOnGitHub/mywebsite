@@ -31,12 +31,8 @@ const locale = lang as Locale;
       }
       
       try {
-        const res = await fetch(`/graph-data-${lang}.json`);
-        if (!res.ok) {
-          console.warn(`Graph data not found for lang: ${lang}`);
-          this.innerHTML = '';
-          return;
-        }
+        const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
+        const res = await fetchWithTimeout(`/graph-data-${lang}.json`, {}, 10000);
         
         const graph = await res.json();
         
@@ -70,7 +66,11 @@ const locale = lang as Locale;
         // Рендерим компонент
         this.render(backlinks, related, lang);
       } catch (error) {
-        console.error('Error loading backlinks:', error);
+        // Логируем ошибки для отладки (только в dev режиме)
+        if (import.meta.env.DEV) {
+          console.error('Error loading backlinks:', error);
+        }
+        // Показываем пустое состояние при ошибке
         this.innerHTML = '';
       }
     }
@@ -82,6 +82,10 @@ const locale = lang as Locale;
       }
       const pathWithSlash = normalizedPath.endsWith('/') ? normalizedPath : `${normalizedPath}/`;
       return `/${lang}/${pathWithSlash}`;
+    }
+    
+    escapeHtml(text: string): string {
+      return escapeHtml(text);
     }
     
     render(backlinks: Array<{ id: string; title: string; type?: string }>, related: Array<{ id: string; title: string; type?: string }>, lang: string) {

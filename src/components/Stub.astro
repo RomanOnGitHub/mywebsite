@@ -258,26 +258,27 @@ const apiKey = (typeof Astro !== 'undefined' && Astro.env?.PUBLIC_WEB3FORMS_KEY)
           throw new Error('API ключ не настроен');
         }
         
-        // Отправляем на Web3Forms API
-        const response = await fetch('https://api.web3forms.com/submit', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
+        // Отправляем на Web3Forms API с timeout
+        const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
+        const response = await fetchWithTimeout(
+          'https://api.web3forms.com/submit',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              access_key: apiKey,
+              subject: `Запрос перевода: ${validation.data!.collection}/${validation.data!.slug} → ${validation.data!.requested_lang}`,
+              email: validation.data!.email,
+              message: validation.data!.message || '',
+              slug: validation.data!.slug,
+              collection: validation.data!.collection,
+              requested_lang: validation.data!.requested_lang,
+            }),
           },
-          body: JSON.stringify({
-            access_key: apiKey,
-            subject: `Запрос перевода: ${validation.data!.collection}/${validation.data!.slug} → ${validation.data!.requested_lang}`,
-            email: validation.data!.email,
-            message: validation.data!.message || '',
-            slug: validation.data!.slug,
-            collection: validation.data!.collection,
-            requested_lang: validation.data!.requested_lang,
-          }),
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+          15000 // 15 секунд для внешнего API
+        );
         
         const data = await response.json();
         
