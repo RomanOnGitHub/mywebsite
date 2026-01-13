@@ -387,10 +387,8 @@ export function getStaticPaths() {
       // Загрузить библиотеки перед использованием
       await loadGraphLibraries();
       
-      const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
-      const res = await fetchWithTimeout(`/graph-data-${lang}.json`, {}, 10000);
-      
-      allData = await res.json() as GraphData;
+      const { getGraphData } = await import('@/utils/graph-cache');
+      allData = await getGraphData(lang) as GraphData;
       
       // Проверяем пустое состояние
       if (!allData || allData.nodes.length === 0) {

@@ -14,11 +14,23 @@ const locale = lang as Locale;
 
 <script>
   import { escapeHtml } from '@/utils/escape-html';
+  import { getGraphData } from '@/utils/graph-cache';
   
   class BacklinksComponent extends HTMLElement {
+    private handlePageLoad: () => void;
+
+    constructor() {
+      super();
+      this.handlePageLoad = () => this.loadBacklinks();
+    }
+
     async connectedCallback() {
-      await this.loadBacklinks();
-      document.addEventListener('astro:page-load', () => this.loadBacklinks());
+      // We rely on astro:page-load to trigger the initial load and updates on navigation
+      document.addEventListener('astro:page-load', this.handlePageLoad);
+    }
+
+    disconnectedCallback() {
+      document.removeEventListener('astro:page-load', this.handlePageLoad);
     }
     
     async loadBacklinks() {
@@ -31,10 +43,7 @@ const locale = lang as Locale;
       }
       
       try {
-        const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
-        const res = await fetchWithTimeout(`/graph-data-${lang}.json`, {}, 10000);
-        
-        const graph = await res.json();
+        const graph = await getGraphData(lang);
         
         // Формируем полный ID текущей страницы (collection/slug)
         // slug может быть вида "blog/my-post" или просто "my-post"

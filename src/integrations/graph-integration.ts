@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
 // Используем @/ алиас для единообразия с остальным проектом
-import { SUPPORTED_LOCALES, parseLeafBundleId } from '@/utils/slugs';
+import { SUPPORTED_LOCALES, parseLeafBundleId } from '../utils/slugs';
 import matter from 'gray-matter';
 import { glob } from 'glob';
 import type { GraphNode, GraphEdge, GraphData } from '@/types/graph';

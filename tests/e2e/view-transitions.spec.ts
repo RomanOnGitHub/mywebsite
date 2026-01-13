@@ -11,7 +11,8 @@ test.describe('View Transitions', () => {
     await page.waitForLoadState('networkidle');
 
     // Navigate to blog page
-    const blogLink = page.getByRole('link', { name: /блог|blog/i });
+    // Use .first() to handle multiple links (e.g. in nav and hero)
+    const blogLink = page.getByRole('link', { name: /блог|blog/i }).first();
     if (await blogLink.isVisible()) {
       await blogLink.click();
       
@@ -43,8 +44,8 @@ test.describe('View Transitions', () => {
     await page.goto('/ru/blog/test-post/');
     await page.waitForLoadState('networkidle');
 
-    // Check if backlinks component exists
-    const backlinks = page.locator('backlinks-component');
+    // Check if backlinks component exists (use .first() as it might be in sidebar and footer)
+    const backlinks = page.locator('backlinks-component').first();
     if (await backlinks.isVisible()) {
       // Navigate to another page
       await page.goto('/ru/cases/test-case/');
