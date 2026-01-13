@@ -20,11 +20,23 @@ const excludeSet = JSON.stringify(excludeSlugs);
 
 <script>
   import { escapeHtml } from '@/utils/escape-html';
+  import { getGraphData } from '@/utils/graph-cache';
   
   class RecommendationsComponent extends HTMLElement {
+    private handlePageLoad: () => void;
+
+    constructor() {
+      super();
+      this.handlePageLoad = () => this.loadRecommendations();
+    }
+
     async connectedCallback() {
-      await this.loadRecommendations();
-      document.addEventListener('astro:page-load', () => this.loadRecommendations());
+      // We rely on astro:page-load to trigger the initial load and updates on navigation
+      document.addEventListener('astro:page-load', this.handlePageLoad);
+    }
+
+    disconnectedCallback() {
+      document.removeEventListener('astro:page-load', this.handlePageLoad);
     }
     
     async loadRecommendations() {
@@ -38,10 +50,7 @@ const excludeSet = JSON.stringify(excludeSlugs);
       }
       
       try {
-        const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
-        const res = await fetchWithTimeout(`/graph-data-${lang}.json`, {}, 10000);
-        
-        const graph = await res.json();
+        const graph = await getGraphData(lang);
         
         // Формируем полный ID текущей страницы
         const currentId = slug.includes('/') ? slug : `blog/${slug}`;

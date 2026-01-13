@@ -72,19 +72,19 @@
       ]
     },
     {
-      "id": "cases/test-case",
-      "title": "Test Case",
-      "type": "cases",
-      "lang": "en",
-      "slug": "test-case",
-      "tags": []
-    },
-    {
       "id": "cases/speed-optimization",
       "title": "Website Speed Optimization",
       "type": "cases",
       "lang": "en",
       "slug": "speed-optimization",
+      "tags": []
+    },
+    {
+      "id": "cases/test-case",
+      "title": "Test Case",
+      "type": "cases",
+      "lang": "en",
+      "slug": "test-case",
       "tags": []
     },
     {

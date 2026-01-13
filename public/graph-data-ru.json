@@ -72,19 +72,19 @@
       ]
     },
     {
-      "id": "cases/test-case",
-      "title": "Тестовый кейс",
-      "type": "cases",
-      "lang": "ru",
-      "slug": "test-case",
-      "tags": []
-    },
-    {
       "id": "cases/speed-optimization",
       "title": "Оптимизация скорости загрузки сайта",
       "type": "cases",
       "lang": "ru",
       "slug": "speed-optimization",
+      "tags": []
+    },
+    {
+      "id": "cases/test-case",
+      "title": "Тестовый кейс",
+      "type": "cases",
+      "lang": "ru",
+      "slug": "test-case",
       "tags": []
     },
     {
