@@ -46,13 +46,14 @@ export default function graphIntegration(): AstroIntegration {
               
               const nodeId = `${collection}/${slug}`;
               
-              const node: GraphNode = {
+              // Используем any для временного хранения lang, который нужен для фильтрации,
+              // но не должен попасть в финальный JSON (будет удален перед записью)
+              const node: any = {
                 id: nodeId,
                 title: data.title || '',
                 type: collection as GraphNode['type'],
-                lang,
-                slug,
                 tags: (data.tags || []) as string[],
+                lang, // Временно сохраняем для фильтрации
               };
               
               const nodeEdges: GraphEdge[] = [];
@@ -60,24 +61,24 @@ export default function graphIntegration(): AstroIntegration {
               // Explicit edges
               if (data.relatedCases) {
                 data.relatedCases.forEach((to: string) => {
-                  nodeEdges.push({ from: nodeId, to: `cases/${to}`, source: 'explicit' });
+                  nodeEdges.push({ from: nodeId, to: `cases/${to}`, source: 'e' });
                 });
               }
               if (data.relatedServices) {
                 data.relatedServices.forEach((to: string) => {
-                  nodeEdges.push({ from: nodeId, to: `services/${to}`, source: 'explicit' });
+                  nodeEdges.push({ from: nodeId, to: `services/${to}`, source: 'e' });
                 });
               }
               if (data.relatedIndustries) {
                 data.relatedIndustries.forEach((to: string) => {
-                  nodeEdges.push({ from: nodeId, to: `industries/${to}`, source: 'explicit' });
+                  nodeEdges.push({ from: nodeId, to: `industries/${to}`, source: 'e' });
                 });
               }
               
               // Outbound links (из remark plugin - если есть в data)
               if (data.outboundLinks) {
                 data.outboundLinks.forEach((to: string) => {
-                  nodeEdges.push({ from: nodeId, to, source: 'outbound' });
+                  nodeEdges.push({ from: nodeId, to, source: 'o' });
                 });
               }
               
@@ -102,8 +103,8 @@ export default function graphIntegration(): AstroIntegration {
           
           // Валидация
           const validIds = new Set(nodes.map(n => n.id));
-          const brokenExplicit = edges.filter(e => e.source === 'explicit' && !validIds.has(e.to));
-          const brokenOutbound = edges.filter(e => e.source === 'outbound' && !validIds.has(e.to));
+          const brokenExplicit = edges.filter(e => e.source === 'e' && !validIds.has(e.to));
+          const brokenOutbound = edges.filter(e => e.source === 'o' && !validIds.has(e.to));
           
           if (brokenExplicit.length > 0) {
             logger.error('❌ Broken explicit links:');
@@ -122,8 +123,13 @@ export default function graphIntegration(): AstroIntegration {
           await fs.mkdir(publicDir, { recursive: true });
           
           for (const lang of SUPPORTED_LOCALES) {
-            const langNodes = nodes.filter(n => n.lang === lang);
-            const langNodeIds = new Set(langNodes.map(n => n.id));
+            // Фильтруем узлы по языку и удаляем свойство lang из финального объекта
+            const langNodesRaw = (nodes as any[]).filter(n => n.lang === lang);
+            const langNodeIds = new Set(langNodesRaw.map(n => n.id));
+
+            // Очищаем узлы от временного свойства lang перед записью
+            const langNodes: GraphNode[] = langNodesRaw.map(({ lang: _, ...node }) => node);
+
             const langEdges = edges.filter(e => 
               langNodeIds.has(e.from) && langNodeIds.has(e.to)
             );

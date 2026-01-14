@@ -6,15 +6,13 @@ export interface GraphNode {
   id: string;
   title: string;
   type: 'blog' | 'cases' | 'services' | 'industries';
-  lang: string;
-  slug: string;
   tags: string[];
 }
 
 export interface GraphEdge {
   from: string;
   to: string;
-  source: 'explicit' | 'outbound';
+  source: 'e' | 'o'; // e=explicit, o=outbound
 }
 
 export interface GraphData {
