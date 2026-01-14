@@ -387,10 +387,8 @@ export function getStaticPaths() {
       // Загрузить библиотеки перед использованием
       await loadGraphLibraries();
       
-      const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
-      const res = await fetchWithTimeout(`/graph-data-${lang}.json`, {}, 10000);
-      
-      allData = await res.json() as GraphData;
+      const { getGraphData } = await import('@/utils/graph-cache');
+      allData = await getGraphData(lang);
       
       // Проверяем пустое состояние
       if (!allData || allData.nodes.length === 0) {
@@ -1401,13 +1399,50 @@ export function getStaticPaths() {
     }
   });
   
+  // ⚡️ PERF: Lazy loading графа с IntersectionObserver
+  // Загружаем граф только когда контейнер виден в viewport
+  // Это уменьшает начальный bundle size и улучшает LCP
+  function setupLazyLoading() {
+    const container = document.getElementById('graph-container');
+    if (!container) {
+      // Fallback: если контейнер не найден, загружаем сразу
+      init();
+      return;
+    }
+    
+    // Используем IntersectionObserver для lazy loading
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          observer.disconnect();
+          
+          // ⚡️ PERF: Используем requestIdleCallback для загрузки в idle time
+          // Если не поддерживается, используем setTimeout с небольшой задержкой
+          if ('requestIdleCallback' in window) {
+            requestIdleCallback(() => {
+              init();
+            }, { timeout: 2000 });
+          } else {
+            setTimeout(() => {
+              init();
+            }, 100);
+          }
+        }
+      });
+    }, {
+      rootMargin: '50px', // Начинаем загрузку за 50px до появления в viewport
+    });
+    
+    observer.observe(container);
+  }
+  
   // Обновление при View Transitions
   document.addEventListener('astro:page-load', () => {
     highlightedNodeId = null;
     zoomControlsInitialized = false; // Сбросить флаг для переинициализации контролов
-    init();
+    setupLazyLoading();
   });
   
-  // Первоначальная загрузка
-  init();
+  // Первоначальная загрузка с lazy loading
+  setupLazyLoading();
 </script>

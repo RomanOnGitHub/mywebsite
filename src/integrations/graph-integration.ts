@@ -2,11 +2,13 @@ import type { AstroIntegration } from 'astro';
 import fs from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
-// Используем @/ алиас для единообразия с остальным проектом
-import { SUPPORTED_LOCALES, parseLeafBundleId } from '@/utils/slugs';
+// ⚠️ ИСКЛЮЧЕНИЕ: В build-time интеграциях (astro:build:done hook) алиас @/ не резолвится
+// Vite резолвит алиасы только для клиентского кода и компонентов, но не для Node.js контекста интеграций
+// Используем относительные пути как исключение из общего правила
+import { SUPPORTED_LOCALES, parseLeafBundleId } from '../utils/slugs.js';
 import matter from 'gray-matter';
 import { glob } from 'glob';
-import type { GraphNode, GraphEdge, GraphData } from '@/types/graph';
+import type { GraphNode, GraphEdge, GraphData } from '../types/graph.js';
 
 export default function graphIntegration(): AstroIntegration {
   return {
@@ -22,12 +24,14 @@ export default function graphIntegration(): AstroIntegration {
           const nodes: GraphNode[] = [];
           const edges: GraphEdge[] = [];
           
-          // Читаем файлы напрямую из файловой системы
-          for (const collection of collections) {
+          // ⚡️ PERF: Параллельная обработка коллекций для ускорения build-time
+          // Обрабатываем все коллекции одновременно вместо последовательно
+          const collectionPromises = collections.map(async (collection) => {
             const collectionPath = path.join(contentDir, collection);
             const files = await glob(`${collectionPath}/**/*.{md,mdx}`);
             
-            for (const filePath of files) {
+            // ⚡️ PERF: Параллельное чтение файлов внутри коллекции
+            const filePromises = files.map(async (filePath) => {
               const content = await fs.readFile(filePath, 'utf-8');
               const { data } = matter(content);
               
@@ -42,38 +46,55 @@ export default function graphIntegration(): AstroIntegration {
               
               const nodeId = `${collection}/${slug}`;
               
-              nodes.push({
+              const node: GraphNode = {
                 id: nodeId,
                 title: data.title || '',
                 type: collection as GraphNode['type'],
                 lang,
                 slug,
                 tags: (data.tags || []) as string[],
-              });
+              };
+              
+              const nodeEdges: GraphEdge[] = [];
               
               // Explicit edges
               if (data.relatedCases) {
                 data.relatedCases.forEach((to: string) => {
-                  edges.push({ from: nodeId, to: `cases/${to}`, source: 'explicit' });
+                  nodeEdges.push({ from: nodeId, to: `cases/${to}`, source: 'explicit' });
                 });
               }
               if (data.relatedServices) {
                 data.relatedServices.forEach((to: string) => {
-                  edges.push({ from: nodeId, to: `services/${to}`, source: 'explicit' });
+                  nodeEdges.push({ from: nodeId, to: `services/${to}`, source: 'explicit' });
                 });
               }
               if (data.relatedIndustries) {
                 data.relatedIndustries.forEach((to: string) => {
-                  edges.push({ from: nodeId, to: `industries/${to}`, source: 'explicit' });
+                  nodeEdges.push({ from: nodeId, to: `industries/${to}`, source: 'explicit' });
                 });
               }
               
               // Outbound links (из remark plugin - если есть в data)
               if (data.outboundLinks) {
                 data.outboundLinks.forEach((to: string) => {
-                  edges.push({ from: nodeId, to, source: 'outbound' });
+                  nodeEdges.push({ from: nodeId, to, source: 'outbound' });
                 });
               }
+              
+              return { node, edges: nodeEdges };
+            });
+            
+            const results = await Promise.all(filePromises);
+            return results;
+          });
+          
+          const allResults = await Promise.all(collectionPromises);
+          
+          // Собираем все узлы и рёбра из всех коллекций
+          for (const collectionResults of allResults) {
+            for (const { node, edges: nodeEdges } of collectionResults) {
+              nodes.push(node);
+              edges.push(...nodeEdges);
             }
           }
           
@@ -109,9 +130,11 @@ export default function graphIntegration(): AstroIntegration {
             
             const graphData: GraphData = { nodes: langNodes, edges: langEdges };
             
+            // ⚡️ PERF: Минифицированный JSON без форматирования для уменьшения размера
+            // Размер файла уменьшается на ~30-40% без форматирования
             await fs.writeFile(
               path.join(publicDir, `graph-data-${lang}.json`),
-              JSON.stringify(graphData, null, 2)
+              JSON.stringify(graphData)
             );
             
             logger.info(`✓ graph-data-${lang}.json: ${langNodes.length} nodes, ${langEdges.length} edges`);

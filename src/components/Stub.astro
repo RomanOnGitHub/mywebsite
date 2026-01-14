@@ -134,18 +134,29 @@ const apiKey = (typeof Astro !== 'undefined' && Astro.env?.PUBLIC_WEB3FORMS_KEY)
   function showMessage(type: 'success' | 'error', message: string) {
     if (!messageDiv) return;
     
+    // ⚡️ SECURITY: Используем DOM API вместо innerHTML для безопасности
+    // Очищаем предыдущее содержимое
+    messageDiv.textContent = '';
+    
+    // Устанавливаем классы через classList
     messageDiv.className = `mb-4 p-4 ${
       type === 'success' 
         ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
         : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
     } rounded-lg`;
-    // Экранируем message для предотвращения XSS
-    const escapedMessage = escapeHtml(message);
-    messageDiv.innerHTML = `<p class="${
-      type === 'success' 
-        ? 'text-green-800 dark:text-green-200' 
-        : 'text-red-800 dark:text-red-200'
-    } font-medium">${type === 'success' ? '✓' : '✗'} ${escapedMessage}</p>`;
+    
+    // Создаём элемент через DOM API
+    const paragraph = document.createElement('p');
+    paragraph.className = type === 'success' 
+      ? 'text-green-800 dark:text-green-200' 
+      : 'text-red-800 dark:text-red-200';
+    paragraph.classList.add('font-medium');
+    
+    // Используем textContent для безопасной вставки текста
+    // Экранирование не требуется, так как textContent автоматически экранирует HTML
+    paragraph.textContent = `${type === 'success' ? '✓' : '✗'} ${message}`;
+    
+    messageDiv.appendChild(paragraph);
     messageDiv.classList.remove('hidden');
   }
   

@@ -16,9 +16,21 @@ const locale = lang as Locale;
   import { escapeHtml } from '@/utils/escape-html';
   
   class BacklinksComponent extends HTMLElement {
+    private pageLoadHandler: (() => void) | null = null;
+    
     async connectedCallback() {
       await this.loadBacklinks();
-      document.addEventListener('astro:page-load', () => this.loadBacklinks());
+      // Сохраняем ссылку на обработчик для последующего удаления
+      this.pageLoadHandler = () => this.loadBacklinks();
+      document.addEventListener('astro:page-load', this.pageLoadHandler);
+    }
+    
+    disconnectedCallback() {
+      // Удаляем обработчик при размонтировании компонента (предотвращение memory leaks)
+      if (this.pageLoadHandler) {
+        document.removeEventListener('astro:page-load', this.pageLoadHandler);
+        this.pageLoadHandler = null;
+      }
     }
     
     async loadBacklinks() {
@@ -31,10 +43,8 @@ const locale = lang as Locale;
       }
       
       try {
-        const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
-        const res = await fetchWithTimeout(`/graph-data-${lang}.json`, {}, 10000);
-        
-        const graph = await res.json();
+        const { getGraphData } = await import('@/utils/graph-cache');
+        const graph = await getGraphData(lang);
         
         // Формируем полный ID текущей страницы (collection/slug)
         // slug может быть вида "blog/my-post" или просто "my-post"

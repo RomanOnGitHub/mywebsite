@@ -22,9 +22,21 @@ const excludeSet = JSON.stringify(excludeSlugs);
   import { escapeHtml } from '@/utils/escape-html';
   
   class RecommendationsComponent extends HTMLElement {
+    private pageLoadHandler: (() => void) | null = null;
+    
     async connectedCallback() {
       await this.loadRecommendations();
-      document.addEventListener('astro:page-load', () => this.loadRecommendations());
+      // Сохраняем ссылку на обработчик для последующего удаления
+      this.pageLoadHandler = () => this.loadRecommendations();
+      document.addEventListener('astro:page-load', this.pageLoadHandler);
+    }
+    
+    disconnectedCallback() {
+      // Удаляем обработчик при размонтировании компонента (предотвращение memory leaks)
+      if (this.pageLoadHandler) {
+        document.removeEventListener('astro:page-load', this.pageLoadHandler);
+        this.pageLoadHandler = null;
+      }
     }
     
     async loadRecommendations() {
@@ -38,10 +50,8 @@ const excludeSet = JSON.stringify(excludeSlugs);
       }
       
       try {
-        const { fetchWithTimeout } = await import('@/utils/fetch-with-timeout');
-        const res = await fetchWithTimeout(`/graph-data-${lang}.json`, {}, 10000);
-        
-        const graph = await res.json();
+        const { getGraphData } = await import('@/utils/graph-cache');
+        const graph = await getGraphData(lang);
         
         // Формируем полный ID текущей страницы
         const currentId = slug.includes('/') ? slug : `blog/${slug}`;
