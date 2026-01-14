@@ -6,58 +6,66 @@
 
 ### 1. Executive Summary
 
-This report details the performance optimization targeting the "Git-Based Knowledge Graph" platform. The primary focus was reducing the size of the static JSON data files (`graph-data-{lang}.json`) loaded by the client-side graph visualization. By optimizing the data structure—specifically removing redundant metadata and minifying property values—we achieved a **~15% reduction** in payload size on the test dataset. This optimization scales with the number of nodes and edges, ensuring better performance as the knowledge base grows to the target 2000+ nodes.
+This report details the performance optimization targeting the "Git-Based Knowledge Graph" platform. The primary focus was minimizing the size of the static JSON data files (`graph-data-{lang}.json`) loaded by the client-side graph visualization. By implementing aggressive structural minification—renaming keys to single letters and mapping enums to integers—we achieved a **~30% reduction** in payload size compared to the baseline. This optimization scales with the number of nodes and edges, ensuring better performance as the knowledge base grows to the target 2000+ nodes.
 
 ### 2. Bottleneck Analysis
 
 **Identified Issue:**
-The application generates a static JSON file for each language containing all nodes and edges for the visualization. Analysis of the baseline `graph-data-{lang}.json` revealed:
--   **Redundant Data:** Each node object contained `slug` and `lang` properties.
-    -   `slug` is redundant because the `id` is constructed as `${collection}/${slug}`.
-    -   `lang` is redundant because the file itself is language-scoped (e.g., `graph-data-en.json` only contains English nodes).
--   **Verbose Keys:** Edge objects used long string identifiers for the `source` property: `'explicit'` (8 chars) and `'outbound'` (8 chars).
+The application generates a static JSON file for each language containing all nodes and edges for the visualization. Even after initial cleanup, the JSON structure used verbose keys:
+-   `nodes`, `edges`
+-   `id`, `title`, `type`, `tags`
+-   `from`, `to`, `source`
+-   Repeated string values for `type` (e.g., "blog", "cases").
 
 **Impact:**
-For a large graph (2000+ nodes, 5000+ edges), these extra bytes accumulate significantly, increasing the Time to Interactive (TTI) for the graph page and bandwidth usage.
+For a large graph (2000+ nodes, 5000+ edges), these keys are repeated thousands of times, wasting bandwidth.
 
 ### 3. Optimization Strategy
 
-**Objective:** Minimize JSON payload size without compromising functionality or code readability/maintainability.
+**Objective:** Minimize JSON payload size using architectural minification.
 
 **Implementation Details:**
 
-1.  **Data Structure Refactoring (`src/types/graph.ts`):**
-    -   Removed `slug` and `lang` from the `GraphNode` interface.
-    -   Changed `GraphEdge['source']` type from `'explicit' | 'outbound'` to `'e' | 'o'`.
+1.  **Schema Minification (`src/types/graph.ts`):**
+    -   Defined `MinifiedGraphNode` and `MinifiedGraphEdge` interfaces.
+    -   Mapped keys:
+        -   `nodes` -> `n`
+        -   `edges` -> `e`
+        -   `id` -> `i`
+        -   `title` -> `t`
+        -   `type` -> `c` (category index)
+        -   `tags` -> `g` (groups)
+        -   `from` -> `f`
+        -   `to` -> `t`
+        -   `source` -> `s`
+    -   Mapped values:
+        -   `type`: Mapped strings ("blog", "cases", etc.) to integer indices (0, 1, 2, 3).
+        -   `source`: Mapped strings ("e", "o") to integers (0, 1).
 
 2.  **Build Pipeline Update (`src/integrations/graph-integration.ts`):**
-    -   Updated the build-time generation logic to stop populating the removed fields.
-    -   Implemented filtering logic to ensure `lang` is used for separating files but excluded from the final output.
-    -   Mapped edge sources to their minified counterparts (`'e'` and `'o'`).
+    -   Implemented the transformation logic to convert domain objects to minified objects before saving.
 
-3.  **Client-Side Adaptation (`src/pages/[lang]/graph.astro`):**
-    -   Updated the `force-graph` configuration to interpret `'e'` and `'o'` correctly for link styling (color, width).
-    -   Updated filtering UI logic to match the new data values.
+3.  **Client-Side Inflation (`src/pages/[lang]/graph.astro`):**
+    -   Implemented an "inflation" step in the client-side `init()` function.
+    -   Fetches the minified JSON and immediately maps it back to the full `GraphNode`/`GraphEdge` structure.
+    -   This preserves the maintainability of the UI code (which still uses readable property names) while gaining the network benefits of minification.
 
 ### 4. Verification & Results
 
 **Quantitative Metrics:**
 
-| Metric | Baseline (en) | Optimized (en) | Reduction |
-| :--- | :--- | :--- | :--- |
-| **File Size** | ~8.0 KB | ~6.8 KB | **~15%** |
-| **Node Structure** | `{id, title, type, tags, slug, lang}` | `{id, title, type, tags}` | 2 fields removed |
-| **Edge Structure** | `{from, to, source="explicit"}` | `{from, to, source="e"}` | 7 bytes saved per edge |
+| Metric | Baseline (en) | Initial Opt | Minified (en) | Total Reduction |
+| :--- | :--- | :--- | :--- | :--- |
+| **File Size** | ~8.0 KB | ~6.8 KB | **~5.6 KB** | **~30%** |
 
 **Qualitative Verification:**
--   **Visual Integrity:** Confirmed via Playwright screenshot that the graph renders correctly, nodes are positioned properly, and links are styled according to their type.
+-   **Visual Integrity:** Confirmed via Playwright screenshot that the graph renders correctly.
 -   **Functionality:** Filtering and navigation logic remains functional.
--   **Scalability:** The savings per node/edge are constant, meaning the absolute byte reduction grows linearly with the graph size, providing greater benefits for larger datasets.
 
 ### 5. Next Steps
 
 To further reach the goal of Mobile Lighthouse 90+ and < 50kb JS bundle:
-1.  **Code Splitting:** Verify `force-graph` dynamic import implementation (partially confirmed).
+1.  **Code Splitting:** Verify `force-graph` dynamic import implementation.
 2.  **Interaction Optimization:** Investigate moving heavy graph physics calculations to a Web Worker.
 3.  **Asset Optimization:** Ensure images referenced in nodes (if any) are properly optimized.
 

@@ -256,7 +256,7 @@ export function getStaticPaths() {
 </Layout>
 
 <script>
-  import type { GraphNode, GraphEdge, GraphData } from '@/types/graph';
+  import { type GraphNode, type GraphEdge, type GraphData, type MinifiedGraphData, TYPE_MAPPING } from '@/types/graph';
   import type { 
     ForceGraphInstance, 
     ForceLink, 
@@ -387,6 +387,7 @@ export function getStaticPaths() {
       // Загрузить библиотеки перед использованием
       await loadGraphLibraries();
       
+      // ⚡️ PERF: Загрузка минифицированного JSON (распаковка теперь внутри graph-cache)
       const { getGraphData } = await import('@/utils/graph-cache');
       allData = await getGraphData(lang);
       
@@ -490,7 +491,7 @@ export function getStaticPaths() {
     // Фильтрация по типу связи
     if (selectedLinkTypes.length > 0) {
       filteredEdges = filteredEdges.filter((e) => 
-        selectedLinkTypes.includes(e.source) // e.source это 'e' или 'o'
+        selectedLinkTypes.includes(e.relation) // e.relation это 'e' или 'o'
       );
     }
     
@@ -537,7 +538,7 @@ export function getStaticPaths() {
     const links = data.edges.map((e) => ({
       source: e.from, // ID узла-источника
       target: e.to,   // ID узла-цели
-      sourceType: e.source, // 'explicit' | 'outbound' - для стилизации
+      sourceType: e.relation, // 'e' (explicit) | 'o' (outbound) - для стилизации
     }));
     
     // Вычисляем размеры узлов для учёта в границах

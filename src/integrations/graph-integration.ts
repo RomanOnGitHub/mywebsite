@@ -8,7 +8,7 @@ import { spawn } from 'child_process';
 import { SUPPORTED_LOCALES, parseLeafBundleId } from '../utils/slugs.js';
 import matter from 'gray-matter';
 import { glob } from 'glob';
-import type { GraphNode, GraphEdge, GraphData } from '../types/graph.js';
+import { type GraphNode, type GraphEdge, type GraphData, type MinifiedGraphData, TYPE_MAPPING } from '../types/graph.js';
 
 export default function graphIntegration(): AstroIntegration {
   return {
@@ -61,24 +61,24 @@ export default function graphIntegration(): AstroIntegration {
               // Explicit edges
               if (data.relatedCases) {
                 data.relatedCases.forEach((to: string) => {
-                  nodeEdges.push({ from: nodeId, to: `cases/${to}`, source: 'e' });
+                  nodeEdges.push({ from: nodeId, to: `cases/${to}`, relation: 'e' });
                 });
               }
               if (data.relatedServices) {
                 data.relatedServices.forEach((to: string) => {
-                  nodeEdges.push({ from: nodeId, to: `services/${to}`, source: 'e' });
+                  nodeEdges.push({ from: nodeId, to: `services/${to}`, relation: 'e' });
                 });
               }
               if (data.relatedIndustries) {
                 data.relatedIndustries.forEach((to: string) => {
-                  nodeEdges.push({ from: nodeId, to: `industries/${to}`, source: 'e' });
+                  nodeEdges.push({ from: nodeId, to: `industries/${to}`, relation: 'e' });
                 });
               }
               
               // Outbound links (из remark plugin - если есть в data)
               if (data.outboundLinks) {
                 data.outboundLinks.forEach((to: string) => {
-                  nodeEdges.push({ from: nodeId, to, source: 'o' });
+                  nodeEdges.push({ from: nodeId, to, relation: 'o' });
                 });
               }
               
@@ -103,8 +103,8 @@ export default function graphIntegration(): AstroIntegration {
           
           // Валидация
           const validIds = new Set(nodes.map(n => n.id));
-          const brokenExplicit = edges.filter(e => e.source === 'e' && !validIds.has(e.to));
-          const brokenOutbound = edges.filter(e => e.source === 'o' && !validIds.has(e.to));
+          const brokenExplicit = edges.filter(e => e.relation === 'e' && !validIds.has(e.to));
+          const brokenOutbound = edges.filter(e => e.relation === 'o' && !validIds.has(e.to));
           
           if (brokenExplicit.length > 0) {
             logger.error('❌ Broken explicit links:');
@@ -123,27 +123,44 @@ export default function graphIntegration(): AstroIntegration {
           await fs.mkdir(publicDir, { recursive: true });
           
           for (const lang of SUPPORTED_LOCALES) {
-            // Фильтруем узлы по языку и удаляем свойство lang из финального объекта
+            // Фильтруем узлы по языку
             const langNodesRaw = (nodes as any[]).filter(n => n.lang === lang);
             const langNodeIds = new Set(langNodesRaw.map(n => n.id));
-
-            // Очищаем узлы от временного свойства lang перед записью
-            const langNodes: GraphNode[] = langNodesRaw.map(({ lang: _, ...node }) => node);
 
             const langEdges = edges.filter(e => 
               langNodeIds.has(e.from) && langNodeIds.has(e.to)
             );
             
-            const graphData: GraphData = { nodes: langNodes, edges: langEdges };
+            // ⚡️ PERF: Минификация структуры JSON
+            // Преобразуем полные объекты в минифицированный формат
+            const minifiedNodes = langNodesRaw.map(n => {
+              const typeIndex = TYPE_MAPPING.indexOf(n.type);
+              return {
+                i: n.id,
+                t: n.title,
+                c: typeIndex === -1 ? 0 : typeIndex, // fallback to 0 if unknown
+                g: n.tags && n.tags.length > 0 ? n.tags : undefined // optional
+              };
+            });
+
+            const minifiedEdges = langEdges.map(e => ({
+              f: e.from,
+              t: e.to,
+              s: e.relation === 'o' ? 1 : 0 // 1=outbound, 0=explicit
+            }));
+
+            const minifiedData: MinifiedGraphData = {
+              n: minifiedNodes,
+              e: minifiedEdges
+            };
             
-            // ⚡️ PERF: Минифицированный JSON без форматирования для уменьшения размера
-            // Размер файла уменьшается на ~30-40% без форматирования
+            // ⚡️ PERF: Минифицированный JSON без форматирования
             await fs.writeFile(
               path.join(publicDir, `graph-data-${lang}.json`),
-              JSON.stringify(graphData)
+              JSON.stringify(minifiedData)
             );
             
-            logger.info(`✓ graph-data-${lang}.json: ${langNodes.length} nodes, ${langEdges.length} edges`);
+            logger.info(`✓ graph-data-${lang}.json: ${minifiedNodes.length} nodes, ${minifiedEdges.length} edges (minified)`);
           }
           
           // Pagefind

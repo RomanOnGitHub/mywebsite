@@ -15,7 +15,7 @@
  * - Если видите дублирование - проверьте, что все компоненты используют общий кэш
  */
 
-import type { GraphData } from '@/types/graph';
+import { type GraphData, type MinifiedGraphData, type GraphNode, type GraphEdge, TYPE_MAPPING } from '@/types/graph';
 import { fetchWithTimeout } from './fetch-with-timeout';
 
 // Проверка доступности Cache API
@@ -129,7 +129,12 @@ export async function getGraphData(
         // Проверяем кэш браузера
         const cachedResponse = await cache.match(url);
         if (cachedResponse) {
-          const cachedData = await cachedResponse.json() as GraphData;
+          // Данные в кэше уже распакованные или нет?
+          // Cache API хранит Response объект. Если мы туда положили response.clone(), то там лежит сырой JSON.
+          // Сырой JSON теперь минифицирован (MinifiedGraphData).
+          // Нам нужно его распаковать (inflate) перед возвратом.
+
+          const minifiedData = await cachedResponse.json() as MinifiedGraphData;
           const cacheDate = cachedResponse.headers.get('date');
           
           // Проверяем TTL
@@ -138,9 +143,11 @@ export async function getGraphData(
             const age = Date.now() - cacheTimestamp;
             
             if (age < CACHE_TTL) {
+              const data = inflateGraphData(minifiedData);
+
               // Сохраняем в memory cache для быстрого доступа
               memoryCache.set(lang, {
-                data: cachedData,
+                data,
                 timestamp: Date.now(),
                 url,
               });
@@ -150,7 +157,7 @@ export async function getGraphData(
               }
               
               cleanupMemoryCache();
-              return cachedData;
+              return data;
             }
           }
         }
@@ -167,12 +174,13 @@ export async function getGraphData(
         throw new Error(`Failed to load graph data: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json() as GraphData;
-      
-      // Сохраняем в Cache API
+      // Сохраняем в Cache API (сырой ответ)
       const responseToCache = response.clone();
       await cache.put(url, responseToCache);
       
+      const minifiedData = await response.json() as MinifiedGraphData;
+      const data = inflateGraphData(minifiedData);
+
       // Сохраняем в memory cache
       memoryCache.set(lang, {
         data,
@@ -196,7 +204,8 @@ export async function getGraphData(
         throw new Error(`Failed to load graph data: ${response.status}`);
       }
       
-      const data = await response.json() as GraphData;
+      const minifiedData = await response.json() as MinifiedGraphData;
+      const data = inflateGraphData(minifiedData);
       
       // Сохраняем в memory cache даже при ошибке Cache API
       memoryCache.set(lang, {
@@ -218,7 +227,8 @@ export async function getGraphData(
       throw new Error(`Failed to load graph data: ${response.status}`);
     }
     
-    const data = await response.json() as GraphData;
+    const minifiedData = await response.json() as MinifiedGraphData;
+    const data = inflateGraphData(minifiedData);
     
     memoryCache.set(lang, {
       data,
@@ -277,6 +287,26 @@ export function resetCacheMetrics(): void {
     metrics.errors = 0;
     metrics.evictions = 0;
   }
+}
+
+/**
+ * Распаковка минифицированных данных в полный формат
+ */
+function inflateGraphData(minified: MinifiedGraphData): GraphData {
+  const nodes: GraphNode[] = minified.n.map(n => ({
+    id: n.i,
+    title: n.t,
+    type: TYPE_MAPPING[n.c] || 'blog', // fallback to blog if unknown
+    tags: n.g || []
+  }));
+
+  const edges: GraphEdge[] = minified.e.map(e => ({
+    from: e.f,
+    to: e.t,
+    relation: e.s === 1 ? 'o' : 'e' // 1=o (outbound), 0=e (explicit)
+  }));
+
+  return { nodes, edges };
 }
 
 // Логирование метрик в dev режиме (каждые 30 секунд)
