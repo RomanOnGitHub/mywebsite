@@ -167,10 +167,13 @@ export async function getGraphData(
         throw new Error(`Failed to load graph data: ${response.status} ${response.statusText}`);
       }
       
+      // ⚠️ ВАЖНО: Клонируем response ДО чтения body
+      // Иначе получим ошибку "Body has already been consumed"
+      const responseToCache = response.clone();
+      
       const data = await response.json() as GraphData;
       
       // Сохраняем в Cache API
-      const responseToCache = response.clone();
       await cache.put(url, responseToCache);
       
       // Сохраняем в memory cache
