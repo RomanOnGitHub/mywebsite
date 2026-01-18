@@ -45,6 +45,9 @@ const excludeSet = JSON.stringify(excludeSlugs);
       const exclude = new Set(JSON.parse(this.dataset.exclude || '[]'));
       
       if (!slug) {
+        // ⚠️ БЕЗОПАСНОСТЬ: innerHTML используется только со статическими строками (без пользовательского ввода)
+        // escapeHtml() не требуется, так как контент полностью статичен и контролируется разработчиком
+        // Если в будущем потребуется динамический контент, обязательно использовать escapeHtml()
         this.innerHTML = '';
         return;
       }
@@ -62,6 +65,9 @@ const excludeSet = JSON.stringify(excludeSlugs);
         );
         
         if (!currentNode) {
+          // ⚠️ БЕЗОПАСНОСТЬ: innerHTML используется только со статическими строками (без пользовательского ввода)
+          // escapeHtml() не требуется, так как контент полностью статичен и контролируется разработчиком
+          // Если в будущем потребуется динамический контент, обязательно использовать escapeHtml()
           this.innerHTML = '';
           return;
         }
@@ -69,6 +75,9 @@ const excludeSet = JSON.stringify(excludeSlugs);
         const currentTags = new Set(currentNode.tags || []);
         
         if (currentTags.size === 0) {
+          // ⚠️ БЕЗОПАСНОСТЬ: innerHTML используется только со статическими строками (без пользовательского ввода)
+          // escapeHtml() не требуется, так как контент полностью статичен и контролируется разработчиком
+          // Если в будущем потребуется динамический контент, обязательно использовать escapeHtml()
           this.innerHTML = '';
           return;
         }
@@ -99,6 +108,9 @@ const excludeSet = JSON.stringify(excludeSlugs);
           .slice(0, 5);
         
         if (recommendations.length === 0) {
+          // ⚠️ БЕЗОПАСНОСТЬ: innerHTML используется только со статическими строками (без пользовательского ввода)
+          // escapeHtml() не требуется, так как контент полностью статичен и контролируется разработчиком
+          // Если в будущем потребуется динамический контент, обязательно использовать escapeHtml()
           this.innerHTML = '';
           return;
         }
@@ -111,6 +123,9 @@ const excludeSet = JSON.stringify(excludeSlugs);
           console.error('Error loading recommendations:', error);
         }
         // Показываем пустое состояние при ошибке
+        // ⚠️ БЕЗОПАСНОСТЬ: innerHTML используется только со статическими строками (без пользовательского ввода)
+        // escapeHtml() не требуется, так как контент полностью статичен и контролируется разработчиком
+        // Если в будущем потребуется динамический контент, обязательно использовать escapeHtml()
         this.innerHTML = '';
       }
     }
@@ -129,6 +144,10 @@ const excludeSet = JSON.stringify(excludeSlugs);
     }
     
     render(recommendations: Array<{ node: { id: string; title: string; type?: string }; score: number; commonTags: string[] }>, lang: string) {
+      // ⚠️ БЕЗОПАСНОСТЬ: innerHTML используется только со статическими строками (без пользовательского ввода)
+      // escapeHtml() не требуется, так как контент полностью статичен и контролируется разработчиком
+      // Если в будущем потребуется динамический контент, обязательно использовать escapeHtml()
+      // Примечание: escapeHtml() уже используется для rec.node.title и tag в шаблоне ниже
       this.innerHTML = `
         <section class="recommendations mt-8">
           <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">

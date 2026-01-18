@@ -763,7 +763,7 @@ export function getStaticPaths() {
               if (graph) {
                 graph.zoomToFit(GRAPH_CONSTANTS.ZOOM_FIT_DURATION_MS);
               }
-            }, GRAPH_CONSTANTS.STABILIZATION_CHECK_DELAY_MS);
+            }, GRAPH_CONSTANTS.ZOOM_FIT_DELAY_MS);
           }
         } else {
           stableTicks = 0;
@@ -962,9 +962,13 @@ export function getStaticPaths() {
             });
             // Обновляем данные графа с новыми позициями
             graph.graphData({ nodes, links: linksWithNodes });
+            // Небольшая задержка перед zoomToFit
+            setTimeout(() => {
+              graph.zoomToFit(GRAPH_CONSTANTS.ZOOM_FIT_DURATION_MS);
+            }, GRAPH_CONSTANTS.ZOOM_FIT_DELAY_MS);
           }
         }
-      }, 10);
+      }, GRAPH_CONSTANTS.ZOOM_FIT_DELAY_MS);
     }
     
     // Настроить zoom контролы после создания графа
