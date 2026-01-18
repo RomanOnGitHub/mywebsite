@@ -24,24 +24,26 @@ const { title, description, slug, lang, collection, structuredData } = Astro.pro
   lang={lang} 
   structuredData={structuredData}
 >
-  <Breadcrumbs title={title} lang={lang} />
-  
-  <article class="max-w-none" transition:name="article">
-    <header class="mb-8">
+  <div class="max-w-7xl p-6 md:p-8 lg:p-12">
+    <Breadcrumbs title={title} lang={lang} />
+    
+    <article class="max-w-none" transition:name="article">
+      <header class="mb-8">
       <h1 class="text-4xl font-bold mb-4">{title}</h1>
       {description && (
         <p class="text-xl text-gray-600 dark:text-gray-400">{description}</p>
       )}
     </header>
     
-    <div class="prose-content">
-      <slot />
-    </div>
-  </article>
-  
-  <Backlinks slug={slug} lang={lang} />
-  
-  <Recommendations slug={slug} lang={lang} />
+      <div class="prose-content">
+        <slot />
+      </div>
+    </article>
+    
+    <Backlinks slug={slug} lang={lang} />
+    
+    <Recommendations slug={slug} lang={lang} />
+  </div>
 </Layout>
 
 <style>

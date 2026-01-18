@@ -20,8 +20,9 @@ export function getStaticPaths() {
   title="Граф знаний" 
   description="Интерактивная визуализация связей между материалами"
   lang={lang}
+  hideSidebar={true}
 >
-  <div class="max-w-7xl mx-auto">
+  <div class="max-w-7xl p-6 md:p-8 lg:p-12">
     <Breadcrumbs title="Граф знаний" lang={lang} />
     <header class="mb-8">
       <div class="flex items-center justify-between mb-4">
@@ -274,6 +275,16 @@ export function getStaticPaths() {
   import { escapeHtml } from '@/utils/escape-html';
   import { GRAPH_CONSTANTS } from '@/utils/graph-constants';
   import { getGraphState } from '@/utils/graph-state';
+  import { showContextMenu as showContextMenuUtil, hideContextMenu as hideContextMenuUtil } from '@/utils/graph-context-menu';
+  import { setupZoomControls as setupZoomControlsUtil } from '@/utils/graph-zoom';
+  import { GraphEventHandlers } from '@/utils/graph-event-handlers';
+  import { applyFilters as applyFiltersUtil, resetFilters as resetFiltersUtil } from '@/utils/graph-filters';
+  import { 
+    highlightConnections as highlightConnectionsUtil, 
+    clearHighlight as clearHighlightUtil,
+    applyFocusMode as applyFocusModeUtil
+  } from '@/utils/graph-highlight';
+  import { exportGraphAsImage as exportGraphAsImageUtil, showExportModal as showExportModalUtil } from '@/utils/graph-export';
   
   // Проверка доступности DOM API
   if (typeof window === 'undefined') {
@@ -393,6 +404,9 @@ export function getStaticPaths() {
   const isFocusModeActive = () => state.isFocusModeActive();
   const getFocusModeNodes = () => state.getFocusModeNodes();
   
+  // Event handlers manager для централизованного управления обработчиками
+  const eventHandlers = new GraphEventHandlers();
+  
   // Сеттеры для состояния через state manager
   const setGraph = (g: ForceGraphInstance | null) => {
     graph = g;
@@ -410,14 +424,27 @@ export function getStaticPaths() {
   async function init() {
     // Защита от повторного вызова
     if (initInProgress) {
+      if (import.meta.env.DEV) {
+        console.log('[Graph] Init already in progress, skipping...');
+      }
       return;
     }
     initInProgress = true;
     
+    if (import.meta.env.DEV) {
+      console.log('[Graph] Initializing graph...');
+    }
+    
     try {
       // Загрузить библиотеки перед использованием
+      if (import.meta.env.DEV) {
+        console.log('[Graph] Loading libraries...');
+      }
       await loadGraphLibraries();
       
+      if (import.meta.env.DEV) {
+        console.log('[Graph] Loading graph data for lang:', lang);
+      }
       const { getGraphData } = await import('@/utils/graph-cache');
       allData = await getGraphData(lang);
       
@@ -440,7 +467,8 @@ export function getStaticPaths() {
         // Добавляем теги, проверяя на дубликаты по value
         const existingValues = new Set<string>();
         allTags.forEach(tag => {
-          if (!tag) return;
+          // Фильтруем пустые строки и null/undefined
+          if (!tag || typeof tag !== 'string' || tag.trim() === '') return;
           
           // Проверяем, что тег ещё не добавлен
           if (!existingValues.has(tag)) {
@@ -451,12 +479,23 @@ export function getStaticPaths() {
             tagsSelect.appendChild(option);
           }
         });
+        
+        if (import.meta.env.DEV) {
+          console.log(`[Graph] Populated ${existingValues.size} tags in filter`);
+        }
       }
+      
+      if (import.meta.env.DEV) {
+        console.log(`[Graph] Loaded ${allData.nodes.length} nodes, ${allData.edges.length} edges`);
+      }
+      
+      // Добавляем обработчики событий для фильтров после загрузки данных
+      setupFilterEventHandlers();
       
       renderGraph(allData, true);
     } catch (error) {
       if (import.meta.env.DEV) {
-        console.error('Error loading graph data:', error);
+        console.error('[Graph] Error loading graph data:', error);
       }
       showEmptyState();
     } finally {
@@ -490,6 +529,13 @@ export function getStaticPaths() {
   let filterDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   
   function applyFilters() {
+    if (!allData) {
+      if (import.meta.env.DEV) {
+        console.warn('[Graph] Cannot apply filters: allData is not loaded');
+      }
+      return;
+    }
+    
     // Очистить предыдущий таймер
     if (filterDebounceTimer) {
       clearTimeout(filterDebounceTimer);
@@ -499,62 +545,12 @@ export function getStaticPaths() {
     filterDebounceTimer = setTimeout(() => {
       if (!allData) return;
       
-      const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
-      const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
-      const linkTypeSelect = document.getElementById('filter-link-type') as HTMLSelectElement;
-      
-      // Получаем множественные значения, исключая пустые строки
-      const selectedTypes = Array.from(typeSelect.selectedOptions)
-        .map(opt => opt.value)
-        .filter(v => v !== '');
-      const selectedTags = Array.from(tagSelect.selectedOptions)
-        .map(opt => opt.value)
-        .filter(v => v !== '');
-      const selectedLinkTypes = Array.from(linkTypeSelect.selectedOptions)
-        .map(opt => opt.value)
-        .filter(v => v !== '');
-      
-      // Получить все уникальные теги из данных для проверки "все теги выбраны"
-      const allAvailableTags = [...new Set(allData.nodes.flatMap((n) => n.tags || []))];
-      const allTagsSelected = selectedTags.length > 0 && 
-        allAvailableTags.length > 0 && 
-        allAvailableTags.every(tag => selectedTags.includes(tag));
-      
-      // Фильтрация узлов
-      const filteredNodes = allData.nodes.filter((n) => {
-        const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(n.type);
-        // Если выбраны все теги (или не выбрано ни одного), показывать все узлы
-        // Иначе показывать узлы, у которых есть хотя бы один из выбранных тегов
-        // Также показывать узлы без тегов, если выбраны все теги
-        const tagMatch = selectedTags.length === 0 || allTagsSelected || 
-          (n.tags && n.tags.length > 0 && n.tags.some(tag => selectedTags.includes(tag))) ||
-          (allTagsSelected && (!n.tags || n.tags.length === 0));
-        return typeMatch && tagMatch;
-      });
-      
-      const nodeIds = new Set(filteredNodes.map((n) => n.id));
-      
-      // Фильтрация рёбер
-      let filteredEdges = allData.edges.filter((e) => 
-        nodeIds.has(e.from) && nodeIds.has(e.to)
-      );
-      
-      // Фильтрация по типу связи
-      if (selectedLinkTypes.length > 0) {
-        filteredEdges = filteredEdges.filter((e) => 
-          selectedLinkTypes.includes(e.source) // e.source это 'explicit' или 'outbound'
-        );
+      if (import.meta.env.DEV) {
+        console.log('[Graph] Applying filters...');
       }
       
-      // Показать уведомление с количеством отфильтрованных узлов
-      const totalNodes = allData.nodes.length;
-      const filteredCount = filteredNodes.length;
-      if (filteredCount < totalNodes) {
-        showNotification(`Показано ${filteredCount} из ${totalNodes} узлов`, 'success');
-      }
-      
-      // При фильтрации всегда центрировать заново, не использовать сохранённые позиции
-      renderGraph({ nodes: filteredNodes, edges: filteredEdges }, true, false);
+      // Используем функцию из модуля
+      applyFiltersUtil(allData, renderGraph, showNotification);
     }, GRAPH_CONSTANTS.DEBOUNCE_FILTER_MS);
   }
   
@@ -1050,18 +1046,9 @@ export function getStaticPaths() {
       filterDebounceTimer = null;
     }
     
-    const typeSelect = document.getElementById('filter-type') as HTMLSelectElement;
-    const tagSelect = document.getElementById('filter-tags') as HTMLSelectElement;
-    const linkTypeSelect = document.getElementById('filter-link-type') as HTMLSelectElement;
-    
-    // Сбросить множественный выбор
-    Array.from(typeSelect.options).forEach(opt => opt.selected = false);
-    Array.from(tagSelect.options).forEach(opt => opt.selected = false);
-    Array.from(linkTypeSelect.options).forEach(opt => opt.selected = false);
-    
+    // Используем функцию из модуля
     if (allData) {
-      // При сбросе фильтров НЕ использовать сохранённые позиции
-      // Всегда центрировать граф заново для корректного отображения
+      resetFiltersUtil(allData, renderGraph);
       renderGraph(allData, true, false);
     }
   }
@@ -1196,27 +1183,17 @@ export function getStaticPaths() {
     });
   }
   
+  // Очистка подсветки - используем функцию из модуля
   function clearHighlight() {
-    if (!graph || getHighlightedNodeId() === null) return;
-    
-    setHighlightedNodeId(null);
-    
-    // Восстановить обычные цвета узлов
-    if (isFocusModeActive() && getFocusModeNodes().size > 0) {
-      // Если режим фокуса активен, применить его
-      applyFocusMode();
-    } else {
-      graph.nodeColor((n: GraphNode) => getDefaultNodeColor(n));
-    }
-    
-    // Восстановить обычные цвета рёбер
-    graph.linkColor((link: ForceGraphLink) => {
-      if (link.sourceType === 'explicit') {
-        return 'rgba(96, 165, 250, 0.8)';
-      } else {
-        return 'rgba(148, 163, 184, 0.8)';
-      }
-    });
+    if (!graph) return;
+    clearHighlightUtil(
+      graph,
+      getHighlightedNodeId(),
+      setHighlightedNodeId,
+      isFocusModeActive(),
+      getFocusModeNodes(),
+      applyFocusMode
+    );
   }
   
   // Режим фокуса
@@ -1249,19 +1226,11 @@ export function getStaticPaths() {
     }
   }
   
+  // Режим фокуса - используем функцию из модуля
   function applyFocusMode() {
     const focusNodes = getFocusModeNodes();
     if (!graph || !allData || focusNodes.size === 0) return;
-    
-    const originalNodeColor = graph.nodeColor();
-    graph.nodeColor((node: GraphNode) => {
-      const baseColor = typeof originalNodeColor === 'function' ? originalNodeColor(node) : getDefaultNodeColor(node);
-      if (focusNodes.has(node.id)) {
-        return baseColor; // Оставить ярким
-      }
-      // Затемнить узлы не в фокусе
-      return addOpacityToColor(baseColor, 0.15);
-    });
+    applyFocusModeUtil(graph, allData, focusNodes);
   }
   
   function setFocusNodes(nodeIds: string[]) {
@@ -1303,154 +1272,23 @@ export function getStaticPaths() {
     return color;
   }
   
-  // Контекстное меню
+  // Контекстное меню - используем функции из модуля
   function showContextMenu(x: number, y: number) {
-    const menu = document.getElementById('context-menu');
-    if (!menu || !getContextMenuNode()) return;
-    
-    menu.style.left = `${x}px`;
-    menu.style.top = `${y}px`;
-    menu.classList.remove('hidden');
+    showContextMenuUtil(x, y, getContextMenuNode());
   }
   
   function hideContextMenu() {
-    const menu = document.getElementById('context-menu');
-    if (menu) {
-      menu.classList.add('hidden');
-    }
+    hideContextMenuUtil();
   }
   
-  // Модальное окно экспорта
+  // Модальное окно экспорта - используем функцию из модуля
   function showExportModal() {
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-    modal.id = 'export-modal';
-    
-    const modalContent = document.createElement('div');
-    modalContent.className = 'bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl';
-    
-    let format: 'png' | 'svg' = 'png';
-    let pixelRatio = 2;
-    let theme: 'light' | 'dark' = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    let watermark = false;
-    let privacyMode = false;
-    let transparentBg = false;
-    
-    // ⚠️ БЕЗОПАСНОСТЬ: innerHTML используется только со статическими строками (без пользовательского ввода)
-    // escapeHtml() не требуется, так как контент полностью статичен и контролируется разработчиком
-    // Если в будущем потребуется динамический контент, обязательно использовать escapeHtml()
-    modalContent.innerHTML = `
-      <div class="mb-4">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Настройки экспорта</h2>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Формат:
-          </label>
-          <select id="export-format" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-            <option value="png">PNG</option>
-            <option value="svg">SVG</option>
-          </select>
-        </div>
-        
-        <div id="pixel-ratio-setting" class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Качество (pixel ratio): <span id="pixel-ratio-value">${escapeHtml(String(pixelRatio))}</span>
-          </label>
-          <input type="range" id="pixel-ratio-slider" min="0.5" max="5" step="0.1" value="${pixelRatio}" class="w-full">
-        </div>
-        
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Тема:
-          </label>
-          <select id="export-theme" class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
-            <option value="light">Светлая</option>
-            <option value="dark">Тёмная</option>
-          </select>
-        </div>
-        
-        <div class="mb-4">
-          <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
-            <input type="checkbox" id="export-watermark" class="mr-2">
-            Добавить watermark
-          </label>
-        </div>
-        
-        <div class="mb-4">
-          <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
-            <input type="checkbox" id="export-privacy" class="mr-2">
-            Режим приватности (затемнить текст)
-          </label>
-        </div>
-        
-        <div id="transparent-bg-setting" class="mb-4">
-          <label class="flex items-center text-sm text-gray-700 dark:text-gray-300">
-            <input type="checkbox" id="export-transparent" class="mr-2">
-            Прозрачный фон
-          </label>
-        </div>
-        
-        <div class="flex gap-2 justify-end">
-          <button id="export-cancel" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md transition-colors">
-            Отмена
-          </button>
-          <button id="export-save" class="px-4 py-2 bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600 text-white rounded-md transition-colors">
-            Экспортировать
-          </button>
-        </div>
-      </div>
-    `;
-    
-    modal.appendChild(modalContent);
-    document.body.appendChild(modal);
-    
-    // Обработчики событий
-    const formatSelect = modalContent.querySelector('#export-format') as HTMLSelectElement;
-    const pixelRatioSlider = modalContent.querySelector('#pixel-ratio-slider') as HTMLInputElement;
-    const pixelRatioValue = modalContent.querySelector('#pixel-ratio-value') as HTMLElement;
-    const pixelRatioSetting = modalContent.querySelector('#pixel-ratio-setting') as HTMLElement;
-    const transparentBgSetting = modalContent.querySelector('#transparent-bg-setting') as HTMLElement;
-    
-    formatSelect.addEventListener('change', (e) => {
-      format = (e.target as HTMLSelectElement).value as 'png' | 'svg';
-      if (format === 'svg') {
-        pixelRatioSetting.style.display = 'none';
-        transparentBgSetting.style.display = 'none';
-      } else {
-        pixelRatioSetting.style.display = 'block';
-        transparentBgSetting.style.display = 'block';
-      }
-    });
-    
-    pixelRatioSlider.addEventListener('input', (e) => {
-      pixelRatio = parseFloat((e.target as HTMLInputElement).value);
-      pixelRatioValue.textContent = pixelRatio.toFixed(1);
-    });
-    
-    modalContent.querySelector('#export-cancel')?.addEventListener('click', () => {
-      document.body.removeChild(modal);
-    });
-    
-    modalContent.querySelector('#export-save')?.addEventListener('click', async () => {
-      theme = (modalContent.querySelector('#export-theme') as HTMLSelectElement).value as 'light' | 'dark';
-      watermark = (modalContent.querySelector('#export-watermark') as HTMLInputElement).checked;
-      privacyMode = (modalContent.querySelector('#export-privacy') as HTMLInputElement).checked;
-      transparentBg = (modalContent.querySelector('#export-transparent') as HTMLInputElement).checked;
-      
-      document.body.removeChild(modal);
-      await exportGraphAsImage(format, pixelRatio, theme, watermark, privacyMode, transparentBg);
-    });
-    
-    // Закрыть при клике вне модального окна
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        document.body.removeChild(modal);
-      }
-    });
+    const container = document.getElementById('graph-container');
+    if (!graph || !container) return;
+    showExportModalUtil(graph, container, lang, exportGraphAsImage);
   }
   
-  // Экспорт графа в изображение
+  // Экспорт графа в изображение - используем функцию из модуля
   async function exportGraphAsImage(
     format: 'png' | 'svg' = 'png',
     pixelRatio: number = 2,
@@ -1459,83 +1297,20 @@ export function getStaticPaths() {
     privacyMode: boolean = false,
     transparentBg: boolean = false
   ) {
+    const container = document.getElementById('graph-container');
     if (!graph || !container) return;
-    
-    try {
-      const { toPng, toSvg } = await import('html-to-image');
-      
-      // Сохранить текущую тему
-      const currentTheme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
-      
-      // Установить тему для экспорта
-      if (theme !== currentTheme) {
-        document.body.classList.toggle('theme-dark', theme === 'dark');
-        document.body.classList.toggle('theme-light', theme === 'light');
-        await new Promise(resolve => setTimeout(resolve, GRAPH_CONSTANTS.EXPORT_THEME_SWITCH_DELAY_MS));
-      }
-      
-      // Сбросить zoom для полного отображения
-      graph.zoomToFit(GRAPH_CONSTANTS.ZOOM_FIT_DURATION_MS);
-      await new Promise(resolve => setTimeout(resolve, GRAPH_CONSTANTS.EXPORT_ZOOM_FIT_DELAY_MS));
-      
-      // Применить privacy mode
-      if (privacyMode) {
-        container.classList.add('privacy-mode');
-      }
-      
-      const options: {
-        quality: number;
-        pixelRatio?: number;
-        backgroundColor?: string;
-        cacheBust: boolean;
-        filter: (node: Node) => boolean;
-      } = {
-        quality: 1.0,
-        pixelRatio: format === 'png' ? pixelRatio : undefined,
-        backgroundColor: transparentBg && format === 'png' ? undefined : 
-          (theme === 'dark' ? '#1f2937' : '#ffffff'),
-        cacheBust: true,
-        filter: (node: Node) => {
-          return !(node as Element).id?.includes('context-menu') &&
-                 !(node as Element).id?.includes('export-modal');
-        },
-      };
-      
-      const dataUrl = format === 'png' 
-        ? await toPng(container, options)
-        : await toSvg(container, options);
-      
-      // Восстановить тему
-      if (theme !== currentTheme) {
-        document.body.classList.toggle('theme-dark', currentTheme === 'dark');
-        document.body.classList.toggle('theme-light', currentTheme === 'light');
-      }
-      
-      // Убрать privacy mode
-      if (privacyMode) {
-        container.classList.remove('privacy-mode');
-      }
-      
-      // Добавить watermark (если нужно)
-      let finalDataUrl = dataUrl;
-      if (watermark && format === 'png') {
-        // Можно добавить watermark через canvas
-        // Пока пропускаем, так как это сложнее
-      }
-      
-      // Скачать изображение
-      const link = document.createElement('a');
-      link.download = `graph-knowledge-${lang}-${new Date().toISOString().split('T')[0]}.${format}`;
-      link.href = finalDataUrl;
-      link.click();
-      
-      showNotification('Граф экспортирован!', 'success');
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Export error:', error);
-      }
-      showNotification('Ошибка экспорта. Проверьте консоль для деталей.', 'error');
-    }
+    await exportGraphAsImageUtil(
+      graph,
+      container,
+      lang,
+      format,
+      pixelRatio,
+      theme,
+      watermark,
+      privacyMode,
+      transparentBg,
+      showNotification
+    );
   }
   
   // Выбор рёбер по направлению
@@ -1607,56 +1382,62 @@ export function getStaticPaths() {
   // Zoom контролы - обработчики добавляются один раз при инициализации
   let zoomControlsInitialized = false;
   
+  // Используем функцию из модуля
   function setupZoomControls() {
-    // Обработчики добавляются только один раз
     if (zoomControlsInitialized) {
       return;
     }
     zoomControlsInitialized = true;
-    
-    const zoomInBtn = document.getElementById('zoom-in');
-    const zoomOutBtn = document.getElementById('zoom-out');
-    const zoomFitBtn = document.getElementById('zoom-fit');
-    const zoomResetBtn = document.getElementById('zoom-reset');
-    
-    zoomInBtn?.addEventListener('click', () => {
-      if (graph) {
-        const currentZoom = graph.zoom() || 1;
-        graph.zoom(currentZoom * 1.2);
-      }
-    });
-    
-    zoomOutBtn?.addEventListener('click', () => {
-      if (graph) {
-        const currentZoom = graph.zoom() || 1;
-        graph.zoom(currentZoom / 1.2);
-      }
-    });
-    
-    zoomFitBtn?.addEventListener('click', () => {
-      if (graph) {
-        graph.zoomToFit(400);
-      }
-    });
-    
-    zoomResetBtn?.addEventListener('click', () => {
-      if (graph) {
-        graph.zoom(1);
-        graph.centerAt(0, 0);
-      }
-    });
+    setupZoomControlsUtil(graph, eventHandlers);
   }
   
   // Флаг для предотвращения повторного вызова init
   let initInProgress = false;
   
+  // Флаг для предотвращения повторного добавления обработчиков
+  let filterHandlersInitialized = false;
   
-  
-  // Инициализация
-  document.getElementById('filter-type')?.addEventListener('change', applyFilters);
-  document.getElementById('filter-tags')?.addEventListener('change', applyFilters);
-  document.getElementById('filter-link-type')?.addEventListener('change', applyFilters);
-  document.getElementById('reset-filters')?.addEventListener('click', resetFilters);
+  // Настройка обработчиков событий для фильтров
+  function setupFilterEventHandlers() {
+    if (filterHandlersInitialized) {
+      return;
+    }
+    filterHandlersInitialized = true;
+    
+    const typeSelect = document.getElementById('filter-type');
+    const tagSelect = document.getElementById('filter-tags');
+    const linkTypeSelect = document.getElementById('filter-link-type');
+    const resetBtn = document.getElementById('reset-filters');
+    
+    // Для множественного select нужно обрабатывать и 'change', и 'click'
+    // так как при Ctrl+Click событие change может не сработать
+    const filterHandler = () => {
+      if (import.meta.env.DEV) {
+        console.log('[Graph] Filter changed, applying filters...');
+      }
+      applyFilters();
+    };
+    
+    if (typeSelect) {
+      typeSelect.addEventListener('change', filterHandler);
+      typeSelect.addEventListener('click', filterHandler);
+    }
+    if (tagSelect) {
+      tagSelect.addEventListener('change', filterHandler);
+      tagSelect.addEventListener('click', filterHandler);
+    }
+    if (linkTypeSelect) {
+      linkTypeSelect.addEventListener('change', filterHandler);
+      linkTypeSelect.addEventListener('click', filterHandler);
+    }
+    if (resetBtn) {
+      resetBtn.addEventListener('click', resetFilters);
+    }
+    
+    if (import.meta.env.DEV) {
+      console.log('[Graph] Filter event handlers initialized');
+    }
+  }
   
   // Поиск узлов
   const searchInput = document.getElementById('search-nodes') as HTMLInputElement;
@@ -1784,34 +1565,25 @@ export function getStaticPaths() {
     const container = document.getElementById('graph-container');
     if (!container) {
       // Fallback: если контейнер не найден, загружаем сразу
+      if (import.meta.env.DEV) {
+        console.warn('[Graph] Container not found, initializing immediately');
+      }
       init();
       return;
     }
     
-    // Используем IntersectionObserver для lazy loading
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          observer.disconnect();
-          
-          // ⚡️ PERF: Используем requestIdleCallback для загрузки в idle time
-          // Если не поддерживается, используем setTimeout с небольшой задержкой
-          if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => {
-              init();
-            }, { timeout: 2000 });
-          } else {
-            setTimeout(() => {
-              init();
-            }, GRAPH_CONSTANTS.GRAPH_INIT_DELAY_MS);
-          }
-        }
-      });
-    }, {
-      rootMargin: '50px', // Начинаем загрузку за 50px до появления в viewport
-    });
+    if (import.meta.env.DEV) {
+      console.log('[Graph] Container found, initializing with delay');
+    }
     
-    observer.observe(container);
+    // Упрощённая логика: всегда инициализируем с небольшой задержкой
+    // для гарантии, что DOM полностью готов
+    setTimeout(() => {
+      if (import.meta.env.DEV) {
+        console.log('[Graph] Calling init() after timeout');
+      }
+      init();
+    }, 200);
   }
   
   // Обновление при View Transitions
@@ -1892,11 +1664,25 @@ export function getStaticPaths() {
     // Сбросить локальные флаги
     zoomControlsInitialized = false;
     initInProgress = false;
+    filterHandlersInitialized = false; // Сбросить флаг обработчиков фильтров
     
     // Переинициализировать граф
     setupLazyLoading();
   });
   
   // Первоначальная загрузка с lazy loading
-  setupLazyLoading();
+  // Используем DOMContentLoaded для гарантированной инициализации
+  function startInitialization() {
+    if (import.meta.env.DEV) {
+      console.log('[Graph] Starting initialization...');
+    }
+    setupLazyLoading();
+  }
+  
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startInitialization);
+  } else {
+    // DOM уже загружен
+    startInitialization();
+  }
 </script>

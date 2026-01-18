@@ -28,7 +28,7 @@ export function applyFilters(
     .filter((v) => v !== '');
   const selectedTags = Array.from(tagSelect.selectedOptions)
     .map((opt) => opt.value)
-    .filter((v) => v !== '');
+    .filter((v) => v !== '' && v.trim() !== ''); // Исключаем пустые строки и пробелы
   const selectedLinkTypes = Array.from(linkTypeSelect.selectedOptions)
     .map((opt) => opt.value)
     .filter((v) => v !== '');
@@ -36,9 +36,18 @@ export function applyFilters(
   // Фильтрация узлов
   const filteredNodes = allData.nodes.filter((n) => {
     const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(n.type);
+    
+    // Фильтрация по тегам:
+    // - Если теги не выбраны (selectedTags.length === 0) → показываем все узлы
+    // - Если теги выбраны → показываем только узлы, у которых есть хотя бы один из выбранных тегов
+    // - Узлы без тегов (пустой массив или undefined) показываются только если теги не выбраны
     const tagMatch =
       selectedTags.length === 0 ||
-      (n.tags && n.tags.some((tag) => selectedTags.includes(tag)));
+      (n.tags && 
+       Array.isArray(n.tags) && 
+       n.tags.length > 0 && 
+       n.tags.some((tag) => tag && typeof tag === 'string' && tag.trim() !== '' && selectedTags.includes(tag)));
+    
     return typeMatch && tagMatch;
   });
 

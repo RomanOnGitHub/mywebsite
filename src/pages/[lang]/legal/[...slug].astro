@@ -72,7 +72,8 @@ const structuredData = hasTranslation ? {
   lang={lang}
   structuredData={structuredData}
 >
-  <article class="prose prose-lg dark:prose-invert max-w-4xl mx-auto">
+  <div class="max-w-7xl p-6 md:p-8 lg:p-12">
+    <article class="prose prose-lg dark:prose-invert max-w-4xl">
     <header class="mb-8">
       <h1 class="text-4xl font-bold mb-4">{legalItem.data.title}</h1>
       {legalItem.data.description && (
@@ -95,5 +96,6 @@ const structuredData = hasTranslation ? {
     ) : (
       <Stub slug={fullSlug} lang={lang} collection="legal" />
     )}
-  </article>
+    </article>
+  </div>
 </Layout>
