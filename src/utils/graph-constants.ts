@@ -23,6 +23,10 @@ export const GRAPH_CONSTANTS = {
   BOUNDING_POSITION_MARGIN_CHECK: 100, // Для валидации сохранённых позиций
   OVERSHOOT_THRESHOLD_PX: 50, // Порог для прямой коррекции позиции
   
+  // Прозрачность узлов
+  NODE_OPACITY_DIM: 0.3, // Для затемнения несвязанных узлов
+  NODE_OPACITY_FOCUS: 0.15, // Для узлов не в фокусе
+  
   // Коэффициенты коррекции границ
   BOUNDING_CORRECTION_STRENGTH_NORMAL: 0.2,
   BOUNDING_CORRECTION_STRENGTH_STRONG: 0.5,
@@ -79,4 +83,19 @@ export const GRAPH_CONSTANTS = {
   
   // LocalStorage ключи
   STORAGE_KEY_POSITIONS: (lang: string) => `graph-positions-${lang}`,
+  
+  // Поиск и подсветка
+  SEARCH_HIGHLIGHT_SIZE_MULTIPLIER: 1.5,
+  NODE_COLOR_HIGHLIGHT: '#fbbf24', // yellow-400
+  KEYBOARD_ZOOM_FACTOR: 1.2,
+  
+  // Экспорт
+  EXPORT_THEME_SWITCH_DELAY_MS: 100,
+  EXPORT_ZOOM_FIT_DELAY_MS: 500,
+  
+  // Уведомления
+  NOTIFICATION_AUTO_REMOVE_DELAY_MS: 3000,
+  
+  // Инициализация графа
+  GRAPH_INIT_DELAY_MS: 100, // Задержка для гарантии инициализации (fallback для requestIdleCallback)
 } as const;

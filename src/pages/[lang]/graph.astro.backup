@@ -381,31 +381,13 @@ export function getStaticPaths() {
   const navigationHistory = new NavigationHistory();
   const lang = document.documentElement.lang || 'ru';
   
-  // Локальные ссылки для удобства (используют state внутри)
+  // Временные ссылки для обратной совместимости (будут удалены после рефакторинга)
   let graph: ForceGraphInstance | null = null;
   let allData: GraphData | null = null;
-  
-  // Геттеры для состояния через state manager
-  const getGraph = () => state.getGraph();
-  const getAllData = () => state.getData();
-  const getHighlightedNodeId = () => state.getHighlightedNodeId();
-  const getContextMenuNode = () => state.getContextMenuNode();
-  const isFocusModeActive = () => state.isFocusModeActive();
-  const getFocusModeNodes = () => state.getFocusModeNodes();
-  
-  // Сеттеры для состояния через state manager
-  const setGraph = (g: ForceGraphInstance | null) => {
-    graph = g;
-    state.setGraph(g);
-  };
-  const setAllData = (data: GraphData | null) => {
-    allData = data;
-    state.setData(data);
-  };
-  const setHighlightedNodeId = (id: string | null) => state.setHighlightedNodeId(id);
-  const setContextMenuNode = (node: GraphNode | null) => state.setContextMenuNode(node);
-  const setFocusMode = (active: boolean) => state.setFocusMode(active);
-  const setFocusModeNodes = (nodeIds: string[]) => state.setFocusModeNodes(nodeIds);
+  let highlightedNodeId: string | null = null;
+  let contextMenuNode: GraphNode | null = null;
+  let focusModeActive: boolean = false;
+  let focusModeNodes: Set<string> = new Set();
   
   async function init() {
     // Защита от повторного вызова
@@ -514,21 +496,10 @@ export function getStaticPaths() {
         .map(opt => opt.value)
         .filter(v => v !== '');
       
-      // Получить все уникальные теги из данных для проверки "все теги выбраны"
-      const allAvailableTags = [...new Set(allData.nodes.flatMap((n) => n.tags || []))];
-      const allTagsSelected = selectedTags.length > 0 && 
-        allAvailableTags.length > 0 && 
-        allAvailableTags.every(tag => selectedTags.includes(tag));
-      
       // Фильтрация узлов
       const filteredNodes = allData.nodes.filter((n) => {
         const typeMatch = selectedTypes.length === 0 || selectedTypes.includes(n.type);
-        // Если выбраны все теги (или не выбрано ни одного), показывать все узлы
-        // Иначе показывать узлы, у которых есть хотя бы один из выбранных тегов
-        // Также показывать узлы без тегов, если выбраны все теги
-        const tagMatch = selectedTags.length === 0 || allTagsSelected || 
-          (n.tags && n.tags.length > 0 && n.tags.some(tag => selectedTags.includes(tag))) ||
-          (allTagsSelected && (!n.tags || n.tags.length === 0));
+        const tagMatch = selectedTags.length === 0 || (n.tags && n.tags.some(tag => selectedTags.includes(tag)));
         return typeMatch && tagMatch;
       });
       
@@ -928,7 +899,7 @@ export function getStaticPaths() {
       .onNodeRightClick((node: GraphNode, event: MouseEvent) => {
         // Контекстное меню при правом клике
         event.preventDefault();
-        setContextMenuNode(node);
+        contextMenuNode = node;
         showContextMenu(event.clientX, event.clientY);
       })
       .onLinkHover((link: ForceGraphLink | null) => {
@@ -1094,10 +1065,10 @@ export function getStaticPaths() {
           const foundNodeIds = matchingNodes.map(n => n.id);
           highlightSearchResults(foundNodeIds);
           
-           // Если режим фокуса активен, установить найденные узлы в фокус
-           if (isFocusModeActive()) {
-             setFocusNodes(foundNodeIds);
-           }
+          // Если режим фокуса активен, установить найденные узлы в фокус
+          if (focusModeActive) {
+            setFocusNodes(foundNodeIds);
+          }
         }
       }
     } else {
@@ -1152,9 +1123,9 @@ export function getStaticPaths() {
   
   // Подсветка связанных узлов
   function highlightConnections(nodeId: string) {
-    if (!graph || !allData || getHighlightedNodeId() === nodeId) return;
+    if (!graph || !allData || highlightedNodeId === nodeId) return;
     
-    setHighlightedNodeId(nodeId);
+    highlightedNodeId = nodeId;
     const connectedNodeIds = new Set<string>([nodeId]);
     
     // Найти все связанные узлы
@@ -1193,12 +1164,12 @@ export function getStaticPaths() {
   }
   
   function clearHighlight() {
-    if (!graph || getHighlightedNodeId() === null) return;
+    if (!graph || highlightedNodeId === null) return;
     
-    setHighlightedNodeId(null);
+    highlightedNodeId = null;
     
     // Восстановить обычные цвета узлов
-    if (isFocusModeActive() && getFocusModeNodes().size > 0) {
+    if (focusModeActive && focusModeNodes.size > 0) {
       // Если режим фокуса активен, применить его
       applyFocusMode();
     } else {
@@ -1217,27 +1188,24 @@ export function getStaticPaths() {
   
   // Режим фокуса
   function toggleFocusMode() {
-    const newState = !isFocusModeActive();
-    setFocusMode(newState);
+    focusModeActive = !focusModeActive;
     const focusBtn = document.getElementById('focus-mode') as HTMLButtonElement;
     
-    if (newState) {
+    if (focusModeActive) {
       // Активировать режим фокуса
       // Фокус на узлах, найденных через поиск, или на всех видимых
-      const focusNodes = getFocusModeNodes();
-      if (focusNodes.size === 0 && allData) {
+      if (focusModeNodes.size === 0 && allData) {
         // Если нет выбранных узлов, использовать все видимые
-        const graphData = graph?.graphData();
+        const graphData = graph.graphData();
         if (graphData && 'nodes' in graphData && Array.isArray(graphData.nodes)) {
-          const nodeIds = (graphData.nodes as GraphNode[]).map((n: GraphNode) => n.id);
-          setFocusModeNodes(nodeIds);
+          focusModeNodes = new Set((graphData.nodes as GraphNode[]).map((n: GraphNode) => n.id));
         }
       }
       applyFocusMode();
       focusBtn?.classList.add('ring-2', 'ring-purple-400');
     } else {
       // Деактивировать режим фокуса
-      setFocusModeNodes([]);
+      focusModeNodes.clear();
       if (graph) {
         graph.nodeColor((n: GraphNode) => getDefaultNodeColor(n));
       }
@@ -1246,13 +1214,12 @@ export function getStaticPaths() {
   }
   
   function applyFocusMode() {
-    const focusNodes = getFocusModeNodes();
-    if (!graph || !allData || focusNodes.size === 0) return;
+    if (!graph || !allData || focusModeNodes.size === 0) return;
     
     const originalNodeColor = graph.nodeColor();
     graph.nodeColor((node: GraphNode) => {
       const baseColor = typeof originalNodeColor === 'function' ? originalNodeColor(node) : getDefaultNodeColor(node);
-      if (focusNodes.has(node.id)) {
+      if (focusModeNodes.has(node.id)) {
         return baseColor; // Оставить ярким
       }
       // Затемнить узлы не в фокусе
@@ -1261,8 +1228,8 @@ export function getStaticPaths() {
   }
   
   function setFocusNodes(nodeIds: string[]) {
-    setFocusModeNodes(nodeIds);
-    if (isFocusModeActive()) {
+    focusModeNodes = new Set(nodeIds);
+    if (focusModeActive) {
       applyFocusMode();
     }
   }
@@ -1302,7 +1269,7 @@ export function getStaticPaths() {
   // Контекстное меню
   function showContextMenu(x: number, y: number) {
     const menu = document.getElementById('context-menu');
-    if (!menu || !getContextMenuNode()) return;
+    if (!menu || !contextMenuNode) return;
     
     menu.style.left = `${x}px`;
     menu.style.top = `${y}px`;
@@ -1467,12 +1434,12 @@ export function getStaticPaths() {
       if (theme !== currentTheme) {
         document.body.classList.toggle('theme-dark', theme === 'dark');
         document.body.classList.toggle('theme-light', theme === 'light');
-        await new Promise(resolve => setTimeout(resolve, GRAPH_CONSTANTS.EXPORT_THEME_SWITCH_DELAY_MS));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
       // Сбросить zoom для полного отображения
-      graph.zoomToFit(GRAPH_CONSTANTS.ZOOM_FIT_DURATION_MS);
-      await new Promise(resolve => setTimeout(resolve, GRAPH_CONSTANTS.EXPORT_ZOOM_FIT_DELAY_MS));
+      graph.zoomToFit(400);
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Применить privacy mode
       if (privacyMode) {
@@ -1597,7 +1564,7 @@ export function getStaticPaths() {
     
     setTimeout(() => {
       notification.remove();
-    }, GRAPH_CONSTANTS.NOTIFICATION_AUTO_REMOVE_DELAY_MS);
+    }, 3000);
   }
   
   // Zoom контролы - обработчики добавляются один раз при инициализации
@@ -1729,10 +1696,9 @@ export function getStaticPaths() {
   
   // Контекстное меню
   document.getElementById('context-copy-node')?.addEventListener('click', async () => {
-    const node = getContextMenuNode();
-    if (node) {
+    if (contextMenuNode) {
       try {
-        await navigator.clipboard.writeText(JSON.stringify(node, null, 2));
+        await navigator.clipboard.writeText(JSON.stringify(contextMenuNode, null, 2));
         showNotification('Данные узла скопированы!', 'success');
       } catch (error) {
         showNotification('Ошибка копирования', 'error');
@@ -1742,17 +1708,15 @@ export function getStaticPaths() {
   });
   
   document.getElementById('context-open-new')?.addEventListener('click', () => {
-    const node = getContextMenuNode();
-    if (node) {
-      window.open(`/${lang}/${node.id}/`, '_blank');
+    if (contextMenuNode) {
+      window.open(`/${lang}/${contextMenuNode.id}/`, '_blank');
     }
     hideContextMenu();
   });
   
   document.getElementById('context-highlight-connections')?.addEventListener('click', () => {
-    const node = getContextMenuNode();
-    if (node) {
-      highlightConnections(node.id);
+    if (contextMenuNode) {
+      highlightConnections(contextMenuNode.id);
     }
     hideContextMenu();
   });
@@ -1799,7 +1763,7 @@ export function getStaticPaths() {
           } else {
             setTimeout(() => {
               init();
-            }, GRAPH_CONSTANTS.GRAPH_INIT_DELAY_MS);
+            }, 100);
           }
         }
       });
@@ -1879,17 +1843,9 @@ export function getStaticPaths() {
     }
   });
   
-  document.addEventListener('astro:page-load', async () => {
-    // Сбросить состояние при View Transitions
-    // Используем resetGraphState для полной очистки состояния
-    const { resetGraphState } = await import('@/utils/graph-state');
-    resetGraphState();
-    
-    // Сбросить локальные флаги
-    zoomControlsInitialized = false;
-    initInProgress = false;
-    
-    // Переинициализировать граф
+  document.addEventListener('astro:page-load', () => {
+    highlightedNodeId = null;
+    zoomControlsInitialized = false; // Сбросить флаг для переинициализации контролов
     setupLazyLoading();
   });
   

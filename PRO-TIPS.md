@@ -2,6 +2,8 @@
 
 Инсайты из анализа проектов и документации.
 
+> **⚠️ ВАЖНО:** Все Pro-Tips, упомянутые в ответах или найденные при анализе кода, должны быть добавлены в этот файл. Это создаёт базу знаний для команды и предотвращает повторение ошибок.
+
 ---
 
 ## 2026-01-27: Рефакторинг графа знаний и архитектурные уроки
@@ -770,3 +772,296 @@ if (graphData && 'nodes' in graphData && Array.isArray(graphData.nodes)) {
 - `graph.astro` - использует `getGraphData()`
 
 **Суть:** Реализовано production-ready решение с Cache API, двухуровневым кэшированием, обработкой ошибок, ограничением памяти и метриками. Все критические проблемы из критической оценки исправлены.
+
+---
+
+## 2026-01-27: Оптимизация процесса разработки
+
+### ⚡ Запуск сборки только при необходимости
+
+**Проблема:** Запуск `npm run build` после каждого изменения, даже для markdown файлов, которые не влияют на сборку.
+
+**Правило:**
+- ✅ Запускать сборку только при изменении файлов, влияющих на сборку:
+  - TypeScript/JavaScript файлы (`.ts`, `.tsx`, `.js`, `.jsx`)
+  - Astro компоненты (`.astro`)
+  - Конфигурационные файлы (`astro.config.ts`, `tsconfig.json`, `package.json`)
+  - Файлы в `src/` и `public/`
+- ❌ НЕ запускать сборку для:
+  - Markdown файлы (`.md`)
+  - Документация
+  - Комментарии в коде
+  - Временные файлы
+
+**Суть:** Оптимизируй процесс разработки - запускай сборку только когда это действительно нужно. Это экономит время и ресурсы.
+
+**Корневая причина проблемы:**
+- Избыточная осторожность - желание убедиться, что ничего не сломалось
+- Отсутствие явного правила - не было чёткого указания, когда запускать сборку
+- Шаблонное поведение - автоматическое выполнение без анализа необходимости
+
+**Правило для будущего:**
+- Перед запуском сборки: проверь, какие файлы изменились
+- Если только markdown/документация: пропусти сборку
+- Если код изменился: запусти сборку/тесты
+- В CI/CD: сборка запускается автоматически для всех коммитов
+
+**Инсайт:** Не нужно проверять сборку после каждого изменения. Анализируй, что изменилось, и запускай сборку только когда это действительно нужно. CI/CD - это страховка, которая проверит всё перед merge.
+
+---
+
+## 2026-01-27: Уроки из code review и рефакторинга графа знаний
+
+### ⚡ State Management при View Transitions
+
+**Проблема:** `resetGraphState()` не вызывался при `astro:page-load`, только отдельные сеттеры. Это приводило к утечкам состояния между навигациями.
+
+**Неправильно:**
+```typescript
+// ❌ ПЛОХО — только частичная очистка
+document.addEventListener('astro:page-load', () => {
+  setHighlightedNodeId(null);
+  setContextMenuNode(null);
+  // Но resetGraphState() не вызывается!
+});
+```
+
+**Правильно:**
+```typescript
+// ✅ ВЕРНО — полная очистка состояния
+document.addEventListener('astro:page-load', async () => {
+  const { resetGraphState } = await import('@/utils/graph-state');
+  resetGraphState(); // Полная очистка singleton инстанса
+  
+  // Сброс локальных флагов
+  zoomControlsInitialized = false;
+  initInProgress = false;
+  
+  // Переинициализация
+  setupLazyLoading();
+});
+```
+
+**Почему важно:**
+- Singleton инстансы сохраняют состояние между навигациями
+- Без явной очистки состояние "протекает" между страницами
+- Event listeners накапливаются, вызывая memory leaks
+
+**Суть:** При View Transitions всегда вызывай cleanup функции для singleton инстансов. Используй `resetGraphState()` или аналогичные методы для полной очистки состояния.
+
+---
+
+### ⚡ Централизация констант (Magic Numbers)
+
+**Проблема:** Хардкодные значения (`100`, `500`, `3000`, `400`) разбросаны по коду, что затрудняет настройку и поддержку.
+
+**Неправильно:**
+```typescript
+// ❌ ПЛОХО — magic numbers везде
+setTimeout(() => {
+  notification.remove();
+}, 3000);
+
+await new Promise(resolve => setTimeout(resolve, 100));
+graph.zoomToFit(400);
+```
+
+**Правильно:**
+```typescript
+// ✅ ВЕРНО — все константы в одном месте
+// src/utils/graph-constants.ts
+export const GRAPH_CONSTANTS = {
+  NOTIFICATION_AUTO_REMOVE_DELAY_MS: 3000,
+  EXPORT_THEME_SWITCH_DELAY_MS: 100,
+  EXPORT_ZOOM_FIT_DELAY_MS: 500,
+  ZOOM_FIT_DURATION_MS: 400,
+  // ...
+} as const;
+
+// Использование
+setTimeout(() => {
+  notification.remove();
+}, GRAPH_CONSTANTS.NOTIFICATION_AUTO_REMOVE_DELAY_MS);
+```
+
+**Почему важно:**
+- Легко настраивать все таймауты в одном месте
+- Самодокументируемый код (имена констант объясняют назначение)
+- Упрощает тестирование (можно мокать константы)
+- Соответствует правилам code review
+
+**Суть:** Все magic numbers должны быть в константах. Создавай отдельные файлы констант (GRAPH_CONSTANTS, APP_CONSTANTS) для централизованного управления.
+
+---
+
+### ⚡ Dev-режим логирование для fallback случаев
+
+**Проблема:** `parseNodeId` использует fallback без логирования, что маскирует проблемы данных в production.
+
+**Неправильно:**
+```typescript
+// ❌ ПЛОХО — fallback без логирования
+export function parseNodeId(id: string): { collection: string; slug: string } {
+  const parts = id.split('/');
+  if (parts.length < 2) {
+    return { collection: 'blog', slug: id }; // Тихая ошибка!
+  }
+  // ...
+}
+```
+
+**Правильно:**
+```typescript
+// ✅ ВЕРНО — логирование в dev режиме
+export function parseNodeId(id: string): { collection: string; slug: string } {
+  const parts = id.split('/');
+  if (parts.length < 2) {
+    if (import.meta.env.DEV) {
+      console.warn(
+        `[parseNodeId] Invalid node ID format: "${id}". ` +
+        `Using fallback: collection="blog", slug="${id}"`
+      );
+    }
+    return { collection: 'blog', slug: id };
+  }
+  // ...
+}
+```
+
+**Почему важно:**
+- Выявляет проблемы данных на ранних этапах разработки
+- Не загрязняет production логи
+- Помогает отлаживать edge cases
+- Предупреждает о потенциальных багах
+
+**Суть:** Все fallback случаи должны логироваться в dev режиме. Используй `import.meta.env.DEV` для условного логирования.
+
+---
+
+### ⚡ Модульность кода (разделение монолитных файлов)
+
+**Проблема:** Файл `graph.astro` содержал 1850+ строк, что затрудняло поддержку и тестирование.
+
+**Неправильно:**
+```typescript
+// ❌ ПЛОХО — всё в одном файле
+// src/pages/[lang]/graph.astro (1850+ строк)
+// - renderGraph()
+// - applyFilters()
+// - highlightConnections()
+// - exportGraphAsImage()
+// - setupZoomControls()
+// - showContextMenu()
+// - ... и ещё 20+ функций
+```
+
+**Правильно:**
+```typescript
+// ✅ ВЕРНО — разделение на модули
+// src/utils/graph-filters.ts
+export function applyFilters(...) { ... }
+
+// src/utils/graph-highlight.ts
+export function highlightConnections(...) { ... }
+
+// src/utils/graph-export.ts
+export function exportGraphAsImage(...) { ... }
+
+// src/utils/graph-zoom.ts
+export function setupZoomControls(...) { ... }
+
+// src/utils/graph-context-menu.ts
+export function showContextMenu(...) { ... }
+
+// src/pages/[lang]/graph.astro (теперь ~400 строк)
+import { applyFilters } from '@/utils/graph-filters';
+import { highlightConnections } from '@/utils/graph-highlight';
+// ...
+```
+
+**Почему важно:**
+- Легче находить и исправлять баги
+- Упрощает тестирование (можно тестировать модули отдельно)
+- Переиспользование кода между компонентами
+- Соответствует принципу Single Responsibility
+
+**Суть:** Файлы >1000 строк должны быть разделены на модули. Каждый модуль отвечает за одну область функциональности (filters, highlight, export, etc.).
+
+---
+
+### ⚡ GraphStateManager (Singleton для состояния)
+
+**Проблема:** Глобальные переменные (`graph`, `allData`, `highlightedNodeId`, etc.) разбросаны по коду, что затрудняет управление состоянием.
+
+**Неправильно:**
+```typescript
+// ❌ ПЛОХО — глобальные переменные
+let graph: ForceGraphInstance | null = null;
+let allData: GraphData | null = null;
+let highlightedNodeId: string | null = null;
+let contextMenuNode: GraphNode | null = null;
+let focusModeActive: boolean = false;
+let focusModeNodes: Set<string> = new Set();
+
+// Прямой доступ везде
+graph = createGraph();
+allData = await getGraphData();
+highlightedNodeId = nodeId;
+```
+
+**Правильно:**
+```typescript
+// ✅ ВЕРНО — централизованное управление состоянием
+// src/utils/graph-state.ts
+export class GraphStateManager {
+  private graph: ForceGraphInstance | null = null;
+  private data: GraphData | null = null;
+  private highlightedNodeId: string | null = null;
+  // ...
+  
+  getGraph(): ForceGraphInstance | null { return this.graph; }
+  setGraph(graph: ForceGraphInstance | null): void { this.graph = graph; }
+  // ...
+  
+  destroy(): void {
+    if (this.graph) this.graph._destructor();
+    this.graph = null;
+    this.data = null;
+    // ...
+  }
+}
+
+// Singleton
+export function getGraphState(): GraphStateManager { ... }
+export function resetGraphState(): void { ... }
+
+// Использование
+const state = getGraphState();
+state.setGraph(createGraph());
+state.setData(await getGraphData());
+state.setHighlightedNodeId(nodeId);
+```
+
+**Почему важно:**
+- Инкапсуляция состояния (нет прямого доступа к переменным)
+- Легко добавить валидацию/логирование в геттеры/сеттеры
+- Централизованная очистка через `destroy()`
+- Предсказуемое управление состоянием
+
+**Суть:** Используй Singleton паттерн для глобального состояния. Геттеры/сеттеры вместо прямых обращений к переменным упрощают отладку и позволяют добавить валидацию при необходимости.
+
+---
+
+### ⚡ Code Review: Проверка lifecycle при View Transitions
+
+**Урок:** При code review нужно проверять не только функциональность, но и lifecycle компонентов при View Transitions.
+
+**Чеклист для code review:**
+- [ ] Все cleanup функции вызываются в `astro:page-load`
+- [ ] Singleton инстансы имеют метод `destroy()` и вызываются при навигации
+- [ ] Event listeners удаляются через менеджер
+- [ ] Magic numbers вынесены в константы
+- [ ] Файлы >1000 строк разделены на модули
+- [ ] Fallback случаи логируются в dev режиме
+
+**Суть:** Code review должен проверять не только "работает ли код", но и "правильно ли управляется lifecycle", "есть ли memory leaks", "централизованы ли константы". Это предотвращает проблемы на ранних этапах.
