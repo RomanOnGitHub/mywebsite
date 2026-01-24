@@ -2,13 +2,12 @@ import type { AstroIntegration } from 'astro';
 import fs from 'fs/promises';
 import path from 'path';
 import { spawn } from 'child_process';
-// ⚠️ ИСКЛЮЧЕНИЕ: В build-time интеграциях (astro:build:done hook) алиас @/ не резолвится
-// Vite резолвит алиасы только для клиентского кода и компонентов, но не для Node.js контекста интеграций
-// Используем относительные пути как исключение из общего правила
-import { SUPPORTED_LOCALES, parseLeafBundleId } from '../utils/slugs.js';
 import matter from 'gray-matter';
 import { glob } from 'glob';
-import type { GraphNode, GraphEdge, GraphData } from '../types/graph.js';
+import type { GraphNode, GraphEdge, GraphData } from '@/types/graph';
+// ⚠️ ИСКЛЮЧЕНИЕ: В build-time интеграциях алиас @/ может не резолвиться (dev SSR)
+// Используем относительный импорт только здесь + явное расширение для Node ESM
+import { SUPPORTED_LOCALES } from '../utils/slugs.ts';
 
 export default function graphIntegration(): AstroIntegration {
   return {

@@ -1,6 +1,6 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import Breadcrumbs from '@/components/ui/Breadcrumbs.astro';
 import { SUPPORTED_LOCALES, type Locale, getLocalizedPath } from '@/utils/slugs';
 
 interface Props {

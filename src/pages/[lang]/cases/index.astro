@@ -1,10 +1,10 @@
 ---
 import Layout from '@/layouts/Layout.astro';
-import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import Breadcrumbs from '@/components/ui/Breadcrumbs.astro';
 import { SUPPORTED_LOCALES, type Locale, filterByLang, getLocalizedPath } from '@/utils/slugs';
 import { getCollection, type CollectionEntry } from 'astro:content';
 import { parseLeafBundleId } from '@/utils/slugs';
-import HeroImage from '@/components/HeroImage.astro';
+import HeroImage from '@/components/sections/HeroImage.astro';
 
 interface Props {
   lang: Locale;

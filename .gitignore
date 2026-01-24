@@ -35,3 +35,6 @@ pnpm-debug.log*
 
 # Local development files
 .local/
+
+# Legacy duplicate structure (to be removed)
+mywebsite/
